@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright Amazon.com Inc. or its affiliates.
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+
+<FindBugsFilter>
+    <Match>
+        <Or>
+            <Package name="~software.amazon.awssdk.*"/>
+            <Package name="~vendored.*"/>
+        </Or>
+    </Match>
+</FindBugsFilter>

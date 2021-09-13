@@ -35,6 +35,8 @@
         <lombok.version>1.18.10</lombok.version>
         <spotbugs.version>4.0.1</spotbugs.version>
         <jackson.version>2.10.1</jackson.version>
+        <hamcrest.core.version>2.2</hamcrest.core.version>
+        <surefire.version>3.0.0-M5</surefire.version>
     </properties>
     <repositories>
         <repository>
@@ -75,6 +77,12 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
             <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.hamcrest</groupId>
+            <artifactId>hamcrest-core</artifactId>
+            <version>${hamcrest.core.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -301,9 +309,9 @@
             </plugin>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M5</version>
+                <version>${surefire.version}</version>
                 <configuration>
-                    <skipTests>${skipTests}</skipTests>
+                    <skipTests>true</skipTests>
                     <trimStackTrace>false</trimStackTrace>
                     <argLine>${surefire.argLine} -Xms1m</argLine>
                     <properties>
@@ -338,7 +346,6 @@
                                 <include>**/integrationtests/**</include>
                             </includes>
                             <groups>${groups}</groups>
-                            <excludedGroups>${excludedGroups}</excludedGroups>
                         </configuration>
                     </execution>
                 </executions>
@@ -423,12 +430,12 @@
                                         <limit>
                                             <counter>INSTRUCTION</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.88</minimum>
+                                            <minimum>0.85</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.76</minimum>
+                                            <minimum>0.85</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -450,12 +457,12 @@
                                         <limit>
                                             <counter>INSTRUCTION</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.55</minimum>
+                                            <minimum>0.85</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.46</minimum>
+                                            <minimum>0.85</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

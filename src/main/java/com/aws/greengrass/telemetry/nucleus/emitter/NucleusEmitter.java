@@ -5,10 +5,10 @@
 
 package com.aws.greengrass.telemetry.nucleus.emitter;
 
+import com.aws.greengrass.config.ChildChanged;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.ImplementsService;
 import com.aws.greengrass.dependency.State;
-import com.aws.greengrass.ipc.AuthenticationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.KernelMetricsEmitter;
@@ -19,13 +19,11 @@ import com.aws.greengrass.util.SerializerFactory;
 import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.AccessLevel;
 import lombok.Getter;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +34,7 @@ import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_UPDATE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.INVALID_PUBLISH_THRESHOLD_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.JSON_PARSE_ERROR_LOG;
@@ -46,11 +45,10 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBL
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_STOPPING;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.STARTUP_CONFIGURATION_LOG;
 
-@ImplementsService(name = AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER, autostart = true)
+@ImplementsService(name = AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)
 public class NucleusEmitter extends PluginService {
 
     private final ScheduledExecutorService ses;
-    private final ExecutorService executorService;
     private final Object telemetryPubSubPublishInProgressLock = new Object();
     private final Object telemetryMqttPublishInProgressLock = new Object();
     private ScheduledFuture<?> telemetryPubSubPublishFuture;
@@ -69,6 +67,8 @@ public class NucleusEmitter extends PluginService {
     private final PubSubPublisher pubSubPublisher;
     private final MqttPublisher mqttPublisher;
 
+    private final ChildChanged subscribeToConfigChanges = (what, topic) ->
+            handleConfiguration(this.config.lookupTopics(CONFIGURATION_CONFIG_KEY));
 
     /**
      *  Constructs a new NucleusEmitter to start publishing telemetry from the Nucleus.
@@ -79,40 +79,27 @@ public class NucleusEmitter extends PluginService {
      * @param pubSubPublisher   {@link PubSubPublisher}
      * @param mqttPublisher     {@link MqttPublisher}
      * @param ses               {@link ScheduledExecutorService}
-     * @param executorService   {@link ExecutorService}
      *
      */
     @Inject
     public NucleusEmitter(Topics t, SystemMetricsEmitter sme, KernelMetricsEmitter kme,
                           PubSubPublisher pubSubPublisher, MqttPublisher mqttPublisher,
-                          ScheduledExecutorService ses, ExecutorService executorService) {
+                          ScheduledExecutorService ses) {
         super(t);
         this.sme = sme;
         this.kme = kme;
         this.pubSubPublisher = pubSubPublisher;
         this.mqttPublisher = mqttPublisher;
         this.ses = ses;
-        this.executorService = executorService;
-    }
-
-    @Override
-    @SuppressFBWarnings(value = {"RV_RETURN_VALUE_IGNORED_BAD_PRACTICE"},
-            justification = "postInject() return value does not need to be handled")
-    public void postInject() {
-        executorService.submit(() -> {
-            Topics configurationTopics = config.lookupTopics(CONFIGURATION_CONFIG_KEY);
-            configurationTopics.subscribe((why, newv) -> handleConfiguration(configurationTopics));
-            handleConfiguration(configurationTopics);
-        });
-        super.postInject();
-
-        // Does not happen for built-in/plugin services so doing explicitly
-        AuthenticationHandler.registerAuthenticationToken(this);
     }
 
     private void handleConfiguration(Topics configurationTopics) {
         NucleusEmitterConfiguration newConfiguration =
-                NucleusEmitterConfiguration.fromPojo(configurationTopics.toPOJO());
+                NucleusEmitterConfiguration.fromPojo(configurationTopics.toPOJO(), logger);
+        if (newConfiguration == null) {
+            logger.error(CONFIG_UPDATE_ERROR_LOG);
+            return;
+        }
         NucleusEmitterConfiguration configuration = currentConfiguration.get();
 
         boolean pubSubPublishChanged = configuration.isPubsubPublish() != newConfiguration.isPubsubPublish();
@@ -144,6 +131,7 @@ public class NucleusEmitter extends PluginService {
     @Override
     public void startup() {
         reportState(State.RUNNING);
+        config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(subscribeToConfigChanges);
         scheduleTelemetryPublish(true, true);
     }
 
@@ -164,14 +152,14 @@ public class NucleusEmitter extends PluginService {
         final long newTelemetryPublishIntervalMs = configuration.getTelemetryPublishIntervalMs();
 
         //Only change if either telemetryPublishIntervalMs or pubSubPublish is changed
-        if (pubSubPublishChanged) {
-            if (telemetryPubSubPublishFuture != null) {
-                logger.warn(PUBSUB_PUBLISH_STOPPING);
-                cancelJob(telemetryPubSubPublishFuture, telemetryPubSubPublishInProgressLock, false);
-            }
-            if (newPubPublish) {
-                synchronized (telemetryPubSubPublishInProgressLock) {
-                    logger.info(PUBSUB_PUBLISH_STARTING);
+        synchronized (telemetryPubSubPublishInProgressLock) {
+            if (pubSubPublishChanged) {
+                if (telemetryPubSubPublishFuture != null) {
+                    logger.debug(PUBSUB_PUBLISH_STOPPING);
+                    cancelJob(telemetryPubSubPublishFuture, telemetryPubSubPublishInProgressLock, false);
+                }
+                if (newPubPublish) {
+                    logger.debug(PUBSUB_PUBLISH_STARTING);
                     telemetryPubSubPublishFuture = ses.scheduleAtFixedRate(
                             this::publishPubSubTelemetry, 0,
                             newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
@@ -179,18 +167,17 @@ public class NucleusEmitter extends PluginService {
             }
         }
         //Only change if either telemetryPublishIntervalMs or mqttTopic is changed
-        if (mqttTopicChanged) {
-            if (telemetryMqttPublishFuture != null) {
-                logger.warn(MQTT_PUBLISH_STOPPING);
-                cancelJob(telemetryMqttPublishFuture, telemetryMqttPublishInProgressLock, false);
-            }
-
-            if (!Utils.isEmpty(newMqttTopic)) {
-                synchronized (telemetryMqttPublishInProgressLock) {
-                    logger.info(MQTT_PUBLISH_STARTING);
-                    telemetryMqttPublishFuture = ses.scheduleAtFixedRate(
-                            () -> publishMqttTelemetry(newMqttTopic), 0,
-                            newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
+        synchronized (telemetryMqttPublishInProgressLock) {
+            if (mqttTopicChanged) {
+                if (telemetryMqttPublishFuture != null) {
+                    logger.debug(MQTT_PUBLISH_STOPPING);
+                    cancelJob(telemetryMqttPublishFuture, telemetryMqttPublishInProgressLock, false);
+                }
+                if (!Utils.isEmpty(newMqttTopic)) {
+                        logger.debug(MQTT_PUBLISH_STARTING);
+                        telemetryMqttPublishFuture = ses.scheduleAtFixedRate(
+                                () -> publishMqttTelemetry(newMqttTopic), 0,
+                                newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
                 }
             }
         }
@@ -217,7 +204,6 @@ public class NucleusEmitter extends PluginService {
     public void shutdown() {
         cancelJob(telemetryPubSubPublishFuture, telemetryPubSubPublishInProgressLock, true);
         cancelJob(telemetryMqttPublishFuture, telemetryMqttPublishInProgressLock, true);
-        ses.shutdown();
     }
 
     private void cancelJob(ScheduledFuture<?> future, Object lock, boolean immediately) {

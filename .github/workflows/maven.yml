@@ -64,7 +64,7 @@ jobs:
           # If files with 100% should be skipped from report.
           skip_covered: false
           # Minimum allowed coverage percentage as an integer.
-          minimum_coverage: 60
+          minimum_coverage: 90
           # Show line rate as specific column.
           show_line: true
           # Show branch rate as specific column.

@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 package com.aws.greengrass.telemetry.nucleus.emitter;
 
 import com.aws.greengrass.config.Topics;
@@ -37,7 +36,6 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -46,6 +44,7 @@ import java.util.stream.Stream;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MIN_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME;
@@ -88,8 +87,6 @@ class NucleusEmitterTest extends GGServiceTestUtil {
     @Mock
     ObjectMapper mockJsonMapper;
     @Mock
-    ExecutorService mockExecutorService;
-    @Mock
     ScheduledExecutorService mockScheduledExecutorService;
 
 
@@ -113,8 +110,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
     }
 
     @AfterEach
-    void teardown() throws InterruptedException {
-        Thread.sleep(100);
+    void teardown() {
         kernel.shutdown();
     }
 
@@ -130,7 +126,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         when(mockSme.getMetrics()).thenReturn(mockSmeMetrics);
         when(mockKme.getMetrics()).thenReturn(mockKmeMetrics);
 
-        nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService, mockExecutorService);
+        nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
         nucleusEmitter.retrieveMetricsJson(mockJsonMapper);
         verify(mockSme, times(1)).getMetrics();
         verify(mockKme, times(1)).getMetrics();
@@ -143,13 +139,12 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         when(mockSme.getMetrics()).thenReturn(mockSmeMetrics);
         when(mockKme.getMetrics()).thenReturn(mockKmeMetrics);
 
-        nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService, mockExecutorService);
+        nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
 
         doThrow(JsonProcessingException.class).when(mockJsonMapper).writeValueAsString(any());
         ignoreExceptionOfType(context, JsonProcessingException.class);
 
         nucleusEmitter.retrieveMetricsJson(mockJsonMapper);
-        nucleusEmitter.startup();
 
         verify(mockSme, times(1)).getMetrics();
         verify(mockKme, times(1)).getMetrics();
@@ -185,6 +180,11 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         assertFalse((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals(TEST_MQTT_TOPIC, configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
         assertEquals(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
+        //Turn off to ensure it shuts down correctly
+        configTopic.find(MQTT_TOPIC_CONFIG_NAME).withValue("");
+        Thread.sleep(500); //Need to wait for the update to take effect, otherwise we see transient failures
+        NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
+        assertEquals("", currentConfiguration.getMqttTopic());
     }
 
     @Test
@@ -203,7 +203,24 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
         assertTrue((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals(TEST_MQTT_TOPIC, configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
-        //Was set to 100ms in config; we can check to see it reverted to 500ms in the plugin but the kernel config is unchanged
+
+        //Kernel config is unchanged, plugin configuration is set to min
         assertEquals(100, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
+        NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
+        assertEquals(MIN_TELEMETRY_PUBLISH_INTERVAL_MS, currentConfiguration.getTelemetryPublishIntervalMs());
+    }
+
+    @Test
+    void GIVEN_invalid_config_option_WHEN_component_started_THEN_it_does_not_update() throws InterruptedException {
+        startKernelWithConfig(Objects.requireNonNull(TestUtils.class.getResource(DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+        Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
+        assertTrue((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
+        assertEquals("", configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
+        assertEquals(60000, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
+
+        //Try to update with invalid value
+        configTopic.find(MQTT_TOPIC_CONFIG_NAME).withValue(4545);
+        NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
+        assertEquals("", currentConfiguration.getMqttTopic());
     }
 }

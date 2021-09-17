@@ -21,7 +21,7 @@ import java.net.URISyntaxException;
 
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
-import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.SAMPLE_RAW_METRICS;
+import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.SAMPLE_RAW_METRICS_JSON;
 import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.readJsonFromFile;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
@@ -39,7 +39,7 @@ class PubSubPublisherTest {
     void GIVEN_valid_metrics_WHEN_publishing_THEN_ipc_publishes_message() throws IOException, URISyntaxException {
 
         PubSubPublisher pubSubPublisher = new PubSubPublisher(mockPubSubIPCEventStreamAgent);
-        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS);
+        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS_JSON);
         pubSubPublisher.publishMessage(sampleJson, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
 
         verify(mockPubSubIPCEventStreamAgent, times(1)).publish(DEFAULT_TELEMETRY_PUBSUB_TOPIC,
@@ -53,7 +53,7 @@ class PubSubPublisherTest {
         doThrow(e).when(mockPubSubIPCEventStreamAgent).publish(any(), any(), any());
 
         PubSubPublisher pubSubPublisher = new PubSubPublisher(mockPubSubIPCEventStreamAgent);
-        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS);
+        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS_JSON);
         pubSubPublisher.publishMessage(sampleJson, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
 
         verify(mockPubSubIPCEventStreamAgent, times(1)).publish(DEFAULT_TELEMETRY_PUBSUB_TOPIC,

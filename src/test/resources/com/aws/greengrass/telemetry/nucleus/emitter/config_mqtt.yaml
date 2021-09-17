@@ -1,0 +1,34 @@
+---
+services:
+  aws.greengrass.Nucleus:
+    configuration:
+      runWithDefault:
+        posixUser: nobody
+  aws.greengrass.telemetry.NucleusEmitter:
+    configuration:
+      pubSubPublish: false
+      mqttTopic: "test/topic"
+      telemetryPublishIntervalMs: 60000
+      accessControl:
+        aws.greengrass.ipc.mqttproxy:
+          aws.greengrass.telemetry.NucleusEmitter:mqttproxy:1:
+            operations:
+              - "aws.greengrass#PublishToIoTCore"
+            policyDescription: "Allows access to publish/subscribe to all topics."
+            resources:
+              - "*"
+        aws.greengrass.ipc.pubsub:
+          aws.greengrass.telemetry.NucleusEmitter:pubsub:1:
+            operations:
+              - "aws.greengrass#PublishToTopic"
+              - "aws.greengrass#SubscribeToTopic"
+            policyDescription: "Allows access to publish/subscribe to all topics."
+            resources:
+              - "$local/greengrass/telemetry"
+    dependencies:
+      - "aws.greengrass.Nucleus:SOFT"
+    version: "2.9.3"
+  main:
+    dependencies:
+      - "aws.greengrass.telemetry.NucleusEmitter"
+    lifecycle: {}

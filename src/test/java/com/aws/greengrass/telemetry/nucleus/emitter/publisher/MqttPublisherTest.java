@@ -22,8 +22,8 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 
-import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_MQTT_TOPIC;
-import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.SAMPLE_RAW_METRICS;
+import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.SAMPLE_RAW_METRICS_JSON;
+import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.TEST_MQTT_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.readJsonFromFile;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -48,13 +48,13 @@ class MqttPublisherTest {
         when(mockMqttClient.connected()).thenReturn(true);
 
         MqttPublisher mqttPublisher = new MqttPublisher(mockMqttClient);
-        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS);
-        mqttPublisher.publishMessage(sampleJson, DEFAULT_TELEMETRY_MQTT_TOPIC);
+        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS_JSON);
+        mqttPublisher.publishMessage(sampleJson, TEST_MQTT_TOPIC);
 
         verify(mockMqttClient, times(1)).publish(publishRequestCaptor.capture());
         String payloadString = new String(publishRequestCaptor.getValue().getPayload());
         assertThat(payloadString, Matchers.is(sampleJson));
-        assertThat(publishRequestCaptor.getValue().getTopic(), Matchers.is(DEFAULT_TELEMETRY_MQTT_TOPIC));
+        assertThat(publishRequestCaptor.getValue().getTopic(), Matchers.is(TEST_MQTT_TOPIC));
     }
 
     @Test
@@ -64,13 +64,13 @@ class MqttPublisherTest {
         when(mockMqttClient.connected()).thenReturn(true);
 
         MqttPublisher mqttPublisher = new MqttPublisher(mockMqttClient);
-        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS);
-        mqttPublisher.publishMessage(sampleJson, "test/topic");
+        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS_JSON);
+        mqttPublisher.publishMessage(sampleJson, TEST_MQTT_TOPIC);
 
         verify(mockMqttClient, times(1)).publish(publishRequestCaptor.capture());
         String payloadString = new String(publishRequestCaptor.getValue().getPayload());
         assertThat(payloadString, Matchers.is(sampleJson));
-        assertThat(publishRequestCaptor.getValue().getTopic(), Matchers.is("test/topic"));
+        assertThat(publishRequestCaptor.getValue().getTopic(), Matchers.is(TEST_MQTT_TOPIC));
     }
 
     @Test
@@ -83,12 +83,12 @@ class MqttPublisherTest {
         future.completeExceptionally(new MqttRequestException("Test exception thrown"));
         when(mockMqttClient.publish(any())).thenReturn(future);
 
-        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS);
-        mqttPublisher.publishMessage(sampleJson, "test/topic");
+        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS_JSON);
+        mqttPublisher.publishMessage(sampleJson, TEST_MQTT_TOPIC);
         verify(mockMqttClient, times(1)).publish(publishRequestCaptor.capture());
         String payloadString = new String(publishRequestCaptor.getValue().getPayload());
         assertThat(payloadString, Matchers.is(sampleJson));
-        assertThat(publishRequestCaptor.getValue().getTopic(), Matchers.is("test/topic"));
+        assertThat(publishRequestCaptor.getValue().getTopic(), Matchers.is(TEST_MQTT_TOPIC));
     }
 
     @Test
@@ -97,8 +97,8 @@ class MqttPublisherTest {
         MqttPublisher mqttPublisher = new MqttPublisher(mockMqttClient);
         when(mockMqttClient.connected()).thenReturn(false);
 
-        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS);
-        mqttPublisher.publishMessage(sampleJson, DEFAULT_TELEMETRY_MQTT_TOPIC);
+        String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS_JSON);
+        mqttPublisher.publishMessage(sampleJson, TEST_MQTT_TOPIC);
         verify(mockMqttClient, times(0)).publish(publishRequestCaptor.capture());
     }
 

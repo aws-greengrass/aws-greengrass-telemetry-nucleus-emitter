@@ -27,7 +27,6 @@ public class Constants {
     public static final String PUBSUB_PUBLISH_STOPPING = "Stopping local pub/sub publishing";
     public static final String MQTT_PUBLISH_SUCCESS_LOG = "Published MQTT message on topic '{}'";
     public static final String MQTT_PUBLISH_FAILURE_LOG = "Failed to publish MQTT message on topic '{}'";
-    public static final String MQTT_CLIENT_DISCONNECT_LOG = "MQTT Client is disconnected. Please check your network";
     public static final String MQTT_PUBLISH_STARTING = "Starting MQTT publishing";
     public static final String MQTT_PUBLISH_STOPPING = "Stopping MQTT publishing";
     public static final String INVALID_PUBLISH_THRESHOLD_LOG = "Publish interval should not be smaller than 500ms. "

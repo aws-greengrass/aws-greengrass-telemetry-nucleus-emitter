@@ -22,9 +22,9 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 
-import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.SAMPLE_RAW_METRICS_JSON;
-import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.TEST_MQTT_TOPIC;
-import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.readJsonFromFile;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.SAMPLE_RAW_METRICS_JSON;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.TEST_MQTT_TOPIC;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.readJsonFromFile;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;

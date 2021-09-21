@@ -23,7 +23,7 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGR
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public final class TestUtils {
+public final class NucleusEmitterTestUtils {
 
     //Need to escape the $ symbol for matching
     public static final String REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC = "\\" + DEFAULT_TELEMETRY_PUBSUB_TOPIC;
@@ -37,7 +37,7 @@ public final class TestUtils {
 
 
     public static String readJsonFromFile(String filename) throws IOException, URISyntaxException {
-        File file = new File(TestUtils.class.getResource(filename).toURI());
+        File file = new File(NucleusEmitterTestUtils.class.getResource(filename).toURI());
         return new String(Files.readAllBytes(file.toPath()));
     }
 
@@ -61,7 +61,7 @@ public final class TestUtils {
         return original;
     }
 
-    private TestUtils() {
+    private NucleusEmitterTestUtils() {
     }
 
 }

@@ -21,8 +21,8 @@ import java.net.URISyntaxException;
 
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
-import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.SAMPLE_RAW_METRICS_JSON;
-import static com.aws.greengrass.telemetry.nucleus.emitter.TestUtils.readJsonFromFile;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.SAMPLE_RAW_METRICS_JSON;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.readJsonFromFile;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;

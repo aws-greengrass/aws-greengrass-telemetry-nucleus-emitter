@@ -27,7 +27,13 @@ public final class TestUtils {
 
     //Need to escape the $ symbol for matching
     public static final String REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC = "\\" + DEFAULT_TELEMETRY_PUBSUB_TOPIC;
-    public static final String SAMPLE_RAW_METRICS = "sample_raw_metrics.json";
+    public static final String TEST_MQTT_TOPIC = "test/topic";
+    public static final String SAMPLE_RAW_METRICS_JSON = "sample_raw_metrics.json";
+    public static final String SAMPLE_RAW_KERNEL_METRICS_JSON = "sample_raw_kernel_metrics.json";
+    public static final String SAMPLE_RAW_SYSTEM_METRICS_JSON = "sample_raw_system_metrics.json";
+    public static final String DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_default.yaml";
+    public static final String INVALID_THRESHOLD_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_invalid_threshold.yaml";
+    public static final String MQTT_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_mqtt.yaml";
 
 
     public static String readJsonFromFile(String filename) throws IOException, URISyntaxException {
@@ -57,4 +63,5 @@ public final class TestUtils {
 
     private TestUtils() {
     }
+
 }

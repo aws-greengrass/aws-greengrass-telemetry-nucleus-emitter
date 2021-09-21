@@ -37,6 +37,7 @@
         <jackson.version>2.10.1</jackson.version>
         <hamcrest.core.version>2.2</hamcrest.core.version>
         <surefire.version>3.0.0-M5</surefire.version>
+        <aws.maven.version>1.4.2</aws.maven.version>
     </properties>
     <repositories>
         <repository>
@@ -110,7 +111,7 @@
             <extension>
                 <groupId>fi.yle.tools</groupId>
                 <artifactId>aws-maven</artifactId>
-                <version>1.4.2</version>
+                <version>${aws.maven.version}</version>
             </extension>
         </extensions>
         <resources>
@@ -430,12 +431,12 @@
                                         <limit>
                                             <counter>INSTRUCTION</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.1</minimum>
+                                            <minimum>0.9</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.1</minimum>
+                                            <minimum>0.9</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -457,12 +458,12 @@
                                         <limit>
                                             <counter>INSTRUCTION</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.85</minimum>
+                                            <minimum>0.9</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.85</minimum>
+                                            <minimum>0.9</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

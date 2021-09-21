@@ -182,7 +182,8 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         assertEquals(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
         //Turn off to ensure it shuts down correctly
         configTopic.find(MQTT_TOPIC_CONFIG_NAME).withValue("");
-        Thread.sleep(500); //Need to wait for the update to take effect, otherwise we see transient failures
+
+        kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
         NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
         assertEquals("", currentConfiguration.getMqttTopic());
     }
@@ -204,6 +205,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         assertTrue((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals(TEST_MQTT_TOPIC, configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
 
+        kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
         //Kernel config is unchanged, plugin configuration is set to min
         assertEquals(100, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
         NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
@@ -220,6 +222,8 @@ class NucleusEmitterTest extends GGServiceTestUtil {
 
         //Try to update with invalid value
         configTopic.find(MQTT_TOPIC_CONFIG_NAME).withValue(4545);
+
+        kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
         NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
         assertEquals("", currentConfiguration.getMqttTopic());
     }

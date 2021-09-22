@@ -59,7 +59,7 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("TotalNumberOfFDs")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(systemInfo.getOperatingSystem().getFileSystem().getOpenFileDescriptors())
                 .timestamp(timestamp)
                 .build();
@@ -70,7 +70,7 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("SystemMemUsage")
                 .unit(TelemetryUnit.Megabytes)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value((memory.getTotal() - memory.getAvailable()) / MB_CONVERTER)
                 .timestamp(timestamp)
                 .build();

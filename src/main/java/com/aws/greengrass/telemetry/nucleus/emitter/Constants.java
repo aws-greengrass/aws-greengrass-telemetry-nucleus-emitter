@@ -36,10 +36,13 @@ public class Constants {
     public static final String JSON_PARSE_ERROR_LOG = "Error while parsing metrics JSON";
     public static final String CONFIG_UPDATE_ERROR_LOG = "Failed to apply configuration update. Please check your "
             + "specified configuration";
+    public static final String CONFIG_INVALID_OPTION_ERROR_LOG = "Invalid config option {}. Please check your specified"
+            + " configuration.";
     public static final String PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG = "Could not parse the pubSubPublish config option"
             + " {}. Please make sure this is set to a valid boolean value";
     public static final String MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG = "Could not parse the mqttTopic config option {}."
             + " Please make sure this is set to a valid topic string value";
     public static final String TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG = "Could not parse the "
-            + "telemetryPublishIntervalMs config option {}. Please make sure this is set to a valid long value";
+            + "telemetryPublishIntervalMs config option {}. Please make sure this is set to a valid non-zero long "
+            + "value";
 }

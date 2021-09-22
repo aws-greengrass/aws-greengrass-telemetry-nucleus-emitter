@@ -13,10 +13,12 @@ import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.logging.impl.config.LogConfig;
+import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.NoOpPathOwnershipHandler;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,6 +31,7 @@ import org.slf4j.event.Level;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -36,22 +39,31 @@ import java.util.function.Consumer;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_UPDATE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.INVALID_PUBLISH_THRESHOLD_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MIN_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_PUBLISH_STARTING;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_STARTING;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.STARTUP_CONFIGURATION_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_MQTT_TOPIC_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_PUBSUB_PUBLISH_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_TELEMETRY_PUBLISH_INTERVALMS_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_THRESHOLD_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.NO_CONFIG_OPTIONS_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.TEST_MQTT_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.format;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.startKernelWithConfig;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -157,9 +169,9 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
         //Change mqttTopic=greengrass/nucleus/telemetry
 
         //Cannot reuse the previous countdownlatch
-        CountDownLatch secondPubsubLog = new CountDownLatch(1);
-        CountDownLatch secondMqttLog = new CountDownLatch(1);
-        CountDownLatch secondConfigLog = new CountDownLatch(1);
+        final CountDownLatch secondPubsubLog = new CountDownLatch(1);
+        final CountDownLatch secondMqttLog = new CountDownLatch(1);
+        final CountDownLatch secondConfigLog = new CountDownLatch(1);
         try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
             String stdoutStr = m.getMessage();
             if (stdoutStr == null || stdoutStr.length() == 0) {return;}
@@ -185,9 +197,9 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
         //--------------------------------------------------
         //Change mqttPublish=false, pubsubPublish=true
 
-        CountDownLatch thirdPubsubLog = new CountDownLatch(1);
-        CountDownLatch thirdMqttLog = new CountDownLatch(1);
-        CountDownLatch thirdConfigLog = new CountDownLatch(1);
+        final CountDownLatch thirdPubsubLog = new CountDownLatch(1);
+        final CountDownLatch thirdMqttLog = new CountDownLatch(1);
+        final CountDownLatch thirdConfigLog = new CountDownLatch(1);
         try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
             String stdoutStr = m.getMessage();
             if (stdoutStr == null || stdoutStr.length() == 0) {return;}
@@ -216,8 +228,8 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
 
     @Test
     void GIVEN_invalid_publish_threshold_THEN_it_reverts_to_minimum() throws Exception {
-        CountDownLatch logFound = new CountDownLatch(1);
-        CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch logFound = new CountDownLatch(1);
+        final CountDownLatch configLog = new CountDownLatch(1);
         final CountDownLatch pubsubLog = new CountDownLatch(1);
         final CountDownLatch mqttLog = new CountDownLatch(1);
         try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
@@ -246,10 +258,139 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
         }
     }
 
+    @Test
+    void GIVEN_no_config_options_THEN_it_uses_default() throws Exception {
+        final CountDownLatch logFound = new CountDownLatch(1);
+        final CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        final CountDownLatch mqttLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(CONFIG_UPDATE_ERROR_LOG)) {
+                logFound.countDown();
+            }
+            //Config should be pubsubPublish:true, pubsubTopic:$local/greengrass/telemetry, mqttTopic:, telemetryPublishIntervalMs:60000
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG, "true", REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC, "", Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+            if (stdoutStr.contains(MQTT_PUBLISH_STARTING)) {
+                mqttLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(NO_CONFIG_OPTIONS_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(logFound.await(15, TimeUnit.SECONDS), "Invalid config options detected.");
+            assertTrue(configLog.await(15, TimeUnit.SECONDS), "Running with default config.");
+            assertTrue(pubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(mqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            checkForPubSubMessages(130000);
+        }
+    }
+
+    @Test
+    void GIVEN_invalid_pubSubPublish_option_THEN_it_uses_default() throws Exception {
+        final CountDownLatch logFound = new CountDownLatch(1);
+        final CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        final CountDownLatch mqttLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(format(PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG, "garbage"))) {
+                logFound.countDown();
+            }
+            //Config should be pubsubPublish:true, pubsubTopic:$local/greengrass/telemetry, mqttTopic:, telemetryPublishIntervalMs:60000
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG, "true", REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC, "", Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+            if (stdoutStr.contains(MQTT_PUBLISH_STARTING)) {
+                mqttLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_PUBSUB_PUBLISH_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(logFound.await(15, TimeUnit.SECONDS), "Invalid config options detected.");
+            assertTrue(configLog.await(15, TimeUnit.SECONDS), "Running with default config.");
+            assertTrue(pubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(mqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            checkForPubSubMessages(130000);
+        }
+    }
+
+    @Test
+    void GIVEN_invalid_telemetryPublishIntervalMs_option_THEN_it_uses_default() throws Exception {
+        final CountDownLatch logFound = new CountDownLatch(1);
+        final CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        final CountDownLatch mqttLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(format(TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG, "garbage"))) {
+                logFound.countDown();
+            }
+            //Config should be pubsubPublish:true, pubsubTopic:$local/greengrass/telemetry, mqttTopic:, telemetryPublishIntervalMs:60000
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG, "true", REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC, "", Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+            if (stdoutStr.contains(MQTT_PUBLISH_STARTING)) {
+                mqttLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_TELEMETRY_PUBLISH_INTERVALMS_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(logFound.await(15, TimeUnit.SECONDS), "Invalid config options detected.");
+            assertTrue(configLog.await(15, TimeUnit.SECONDS), "Running with default config.");
+            assertTrue(pubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(mqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            checkForPubSubMessages(130000);
+        }
+    }
+
+    @Test
+    void GIVEN_invalid_mqttTopic_option_THEN_it_uses_default() throws Exception {
+        final CountDownLatch logFound = new CountDownLatch(1);
+        final CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        final CountDownLatch mqttLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(format(MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG, "4545"))) {
+                logFound.countDown();
+            }
+            //Config should be pubsubPublish:true, pubsubTopic:$local/greengrass/telemetry, mqttTopic:, telemetryPublishIntervalMs:60000
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG, "true", REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC, "", Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+            if (stdoutStr.contains(MQTT_PUBLISH_STARTING)) {
+                mqttLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_MQTT_TOPIC_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(logFound.await(15, TimeUnit.SECONDS), "Invalid config options detected.");
+            assertTrue(configLog.await(15, TimeUnit.SECONDS), "Running with default config.");
+            assertTrue(pubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(mqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            checkForPubSubMessages(130000);
+        }
+    }
+
     private static boolean isJSONValid(String json) {
         try {
             final ObjectMapper mapper = new ObjectMapper();
-            mapper.readTree(json);
+            List<Metric> retrievedMetrics = mapper.readValue(json, new TypeReference<List<Metric>>(){});
+            assertEquals(12, retrievedMetrics.size());
             return true;
         } catch (IOException e) {
             return false;

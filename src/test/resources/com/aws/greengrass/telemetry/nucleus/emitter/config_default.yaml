@@ -6,9 +6,9 @@ services:
         posixUser: nobody
   aws.greengrass.telemetry.NucleusEmitter:
     configuration:
-      pubSubPublish: true
+      pubSubPublish: "true"
       mqttTopic: ""
-      telemetryPublishIntervalMs: 60000
+      telemetryPublishIntervalMs: "60000"
     dependencies:
       - "aws.greengrass.Nucleus:SOFT"
     version: "2.9.3"

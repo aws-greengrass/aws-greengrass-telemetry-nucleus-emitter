@@ -52,7 +52,7 @@ public class KernelMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("NumberOfComponentsStarting")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(stateCount.getOrDefault(State.STARTING, 0))
                 .timestamp(timestamp)
                 .build();
@@ -62,7 +62,7 @@ public class KernelMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("NumberOfComponentsInstalled")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(stateCount.getOrDefault(State.INSTALLED, 0))
                 .timestamp(timestamp)
                 .build();
@@ -72,7 +72,7 @@ public class KernelMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("NumberOfComponentsStateless")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(stateCount.getOrDefault(State.STATELESS, 0))
                 .timestamp(timestamp)
                 .build();
@@ -82,7 +82,7 @@ public class KernelMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("NumberOfComponentsStopping")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(stateCount.getOrDefault(State.STOPPING, 0))
                 .timestamp(timestamp)
                 .build();
@@ -92,7 +92,7 @@ public class KernelMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("NumberOfComponentsBroken")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(stateCount.getOrDefault(State.BROKEN, 0))
                 .timestamp(timestamp)
                 .build();
@@ -102,7 +102,7 @@ public class KernelMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("NumberOfComponentsRunning")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(stateCount.getOrDefault(State.RUNNING, 0))
                 .timestamp(timestamp)
                 .build();
@@ -112,7 +112,7 @@ public class KernelMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("NumberOfComponentsErrored")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(stateCount.getOrDefault(State.ERRORED, 0))
                 .timestamp(timestamp)
                 .build();
@@ -122,7 +122,7 @@ public class KernelMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("NumberOfComponentsNew")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(stateCount.getOrDefault(State.NEW, 0))
                 .timestamp(timestamp)
                 .build();
@@ -132,7 +132,7 @@ public class KernelMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("NumberOfComponentsFinished")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Average)
+                .aggregation(TelemetryAggregation.Count)
                 .value(stateCount.getOrDefault(State.FINISHED, 0))
                 .timestamp(timestamp)
                 .build();

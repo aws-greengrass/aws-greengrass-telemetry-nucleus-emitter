@@ -9,9 +9,11 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.util.Coerce;
 import lombok.Builder;
 import lombok.Value;
+import org.apache.commons.lang3.BooleanUtils;
 
 import java.util.Map;
 
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_INVALID_OPTION_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG;
@@ -49,18 +51,28 @@ public class NucleusEmitterConfiguration {
         for (Map.Entry<String, Object> entry : pojo.entrySet()) {
             switch (entry.getKey()) {
                 case PUBSUB_PUBLISH_CONFIG_NAME:
-                    if (entry.getValue() instanceof Boolean) {
-                        pubsubPublish = Coerce.toBoolean(entry.getValue());
+                    if (entry.getValue() instanceof Boolean || entry.getValue() instanceof String) {
+                        //BooleanUtils.toBooleanObject will return null if invalid
+                        Boolean parsedBoolean = BooleanUtils.toBooleanObject(entry.getValue().toString());
+                        if (parsedBoolean == null) { //If value is invalid
+                            logger.error(PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG, entry.getValue());
+                            return null;
+                        }
+                        pubsubPublish = parsedBoolean;
                         break;
                     } else {
                         logger.error(PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG, entry.getValue());
                         return null;
                     }
                 case TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME:
-                    if (entry.getValue() instanceof Number) {
+                    if (entry.getValue() instanceof Number || entry.getValue() instanceof String) {
                         telemetryPublishIntervalMs = Coerce.toLong(entry.getValue());
+                        if (telemetryPublishIntervalMs == 0L) { //If value is 0 or non-numeric String
+                            logger.error(TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG, entry.getValue());
+                            return null;
+                        }
                         break;
-                    } else {
+                    } else { //If not a Number or String
                         logger.error(TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG, entry.getValue());
                         return null;
                     }
@@ -73,7 +85,8 @@ public class NucleusEmitterConfiguration {
                         return null;
                     }
                 default:
-                    break;
+                    logger.error(CONFIG_INVALID_OPTION_ERROR_LOG, entry.getKey());
+                    return null;
             }
         }
 

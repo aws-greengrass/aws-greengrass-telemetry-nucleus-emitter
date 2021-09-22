@@ -58,8 +58,6 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUti
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.startKernelWithConfig;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
@@ -156,9 +154,9 @@ class NucleusEmitterTest extends GGServiceTestUtil {
 
         startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
-        assertTrue((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
+        assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals("", configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
-        assertEquals(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
+        assertEquals(Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS), configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
     }
 
     @Test
@@ -166,10 +164,10 @@ class NucleusEmitterTest extends GGServiceTestUtil {
 
         startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
-        configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).withValue(10000);
-        assertTrue((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
+        configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).withValue("10000");
+        assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals("", configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
-        assertEquals(10000, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
+        assertEquals("10000", configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
     }
 
     @Test
@@ -177,9 +175,9 @@ class NucleusEmitterTest extends GGServiceTestUtil {
 
         startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(MQTT_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
-        assertFalse((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
+        assertEquals("false", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals(TEST_MQTT_TOPIC, configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
-        assertEquals(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
+        assertEquals(Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS), configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
         //Turn off to ensure it shuts down correctly
         configTopic.find(MQTT_TOPIC_CONFIG_NAME).withValue("");
 
@@ -192,22 +190,22 @@ class NucleusEmitterTest extends GGServiceTestUtil {
     void GIVEN_mqttPublishing_WHEN_pubSubPublish_enabled_THEN_it_works() throws InterruptedException {
         startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(MQTT_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
-        configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).withValue(true);
-        assertTrue((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
+        configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).withValue("true");
+        assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals(TEST_MQTT_TOPIC, configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
-        assertEquals(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
+        assertEquals(Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS), configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
     }
 
     @Test
     void GIVEN_invalid_publish_threshold_WHEN_component_started_THEN_it_reverts_to_minimum() throws InterruptedException {
         startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_THRESHOLD_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
-        assertTrue((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
+        assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals(TEST_MQTT_TOPIC, configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
 
         kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
         //Kernel config is unchanged, plugin configuration is set to min
-        assertEquals(100, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
+        assertEquals("100", configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
         NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
         assertEquals(MIN_TELEMETRY_PUBLISH_INTERVAL_MS, currentConfiguration.getTelemetryPublishIntervalMs());
     }
@@ -216,9 +214,9 @@ class NucleusEmitterTest extends GGServiceTestUtil {
     void GIVEN_invalid_config_option_WHEN_component_started_THEN_it_does_not_update() throws InterruptedException {
         startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
-        assertTrue((Boolean) configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
+        assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals("", configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
-        assertEquals(60000, ((Number) configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce()).longValue());
+        assertEquals(Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS), configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
 
         //Try to update with invalid value
         configTopic.find(MQTT_TOPIC_CONFIG_NAME).withValue(4545);

@@ -2,7 +2,7 @@
 ![Java CI](https://github.com/aws-greengrass/aws-greengrass-telemetry-nucleus-emitter/workflows/Java%20CI/badge.svg?branch=main)
 
 
-The Greengrass Nucleus Telemetry Emitter component (aws.greengrass.telemetry.NucleusEmitter) gathers system health telemetry data and continually publishes it to an offline local topic and (optionally) an AWS IoT Core MQTT topic. This component enables you to gather real-time system telemetry on your Greengrass core devices.
+The Greengrass Nucleus Telemetry Emitter component (aws.greengrass.telemetry.NucleusEmitter) gathers system health telemetry data and continually publishes it to an offline local topic and (optionally) an AWS IoT Core MQTT topic. This component enables the gathering of real-time system telemetry on your Greengrass core devices.
 
 ---
 This plugin supports the following configuration options:
@@ -17,7 +17,7 @@ This plugin supports the following configuration options:
 By default, the plugin will begin publishing real-time telemetry once every 60 seconds to the local pub/sub topic `$local/greengrass/telemetry`.
 Note that enabling publishing to AWS IoT Core may incur additional costs.
 
-For more information, please see the [official Nucleus Telemetry Emitter documentation](https://docs.aws.amazon.com/greengrass/v2/developerguide/nucleus-emitter-component.html) 
+For more information, please see the [official Nucleus Telemetry Emitter documentation](https://docs.aws.amazon.com/greengrass/v2/developerguide/nucleus-emitter-component.html). 
 
 ---
 ## Security

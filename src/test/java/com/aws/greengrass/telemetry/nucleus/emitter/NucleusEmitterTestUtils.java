@@ -33,6 +33,13 @@ public final class NucleusEmitterTestUtils {
     public static final String SAMPLE_RAW_SYSTEM_METRICS_JSON = "sample_raw_system_metrics.json";
     public static final String DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_default.yaml";
     public static final String INVALID_THRESHOLD_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_invalid_threshold.yaml";
+    public static final String INVALID_PUBSUB_PUBLISH_NUCLEUS_EMITTER_KERNEL_CONFIG =
+            "config_invalid_pubSubPublish.yaml";
+    public static final String INVALID_MQTT_TOPIC_NUCLEUS_EMITTER_KERNEL_CONFIG =
+            "config_invalid_mqttTopic.yaml";
+    public static final String INVALID_TELEMETRY_PUBLISH_INTERVALMS_NUCLEUS_EMITTER_KERNEL_CONFIG =
+            "config_invalid_telemetryPublishIntervalMs.yaml";
+    public static final String NO_CONFIG_OPTIONS_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_no_options.yaml";
     public static final String MQTT_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_mqtt.yaml";
 
 

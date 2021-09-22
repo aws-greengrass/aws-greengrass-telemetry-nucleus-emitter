@@ -48,7 +48,7 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
                 .namespace(NAMESPACE)
                 .name("CpuUsage")
                 .unit(TelemetryUnit.Percent)
-                .aggregation(TelemetryAggregation.Count)
+                .aggregation(TelemetryAggregation.Average)
                 .value(cpu.getSystemCpuLoadBetweenTicks(previousTicks) * PERCENTAGE_CONVERTER)
                 .timestamp(timestamp)
                 .build();

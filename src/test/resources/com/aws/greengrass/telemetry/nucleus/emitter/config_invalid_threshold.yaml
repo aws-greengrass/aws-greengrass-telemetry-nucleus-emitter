@@ -11,7 +11,7 @@ services:
       telemetryPublishIntervalMs: "100"
     dependencies:
       - "aws.greengrass.Nucleus:SOFT"
-    version: "2.9.3"
+    version: "1.0.0"
   main:
     dependencies:
       - "aws.greengrass.telemetry.NucleusEmitter"

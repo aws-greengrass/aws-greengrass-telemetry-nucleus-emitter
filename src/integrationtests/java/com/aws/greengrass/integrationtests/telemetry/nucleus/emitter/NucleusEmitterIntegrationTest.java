@@ -115,9 +115,9 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
         })) {
 
             startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
-            assertTrue(firstConfigLog.await(15, TimeUnit.SECONDS), "Running with default config.");
-            assertTrue(firstPubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
-            assertFalse(firstMqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log not detected.");
+            assertTrue(firstConfigLog.await(30, TimeUnit.SECONDS), "Running with default config.");
+            assertTrue(firstPubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(firstMqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log not detected.");
 
             checkForPubSubMessages(130000);
         }
@@ -160,9 +160,10 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
             //Change publish interval to 5s to speed up testing
             getConfigTopic(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).withValue(5000);
 
+            kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
             assertTrue(firstConfigLog.await(30, TimeUnit.SECONDS), "Running with expected config.");
-            assertFalse(firstPubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log not detected.");
-            assertTrue(firstMqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            assertFalse(firstPubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log not detected.");
+            assertTrue(firstMqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log detected.");
         }
 
         //--------------------------------------------------
@@ -189,9 +190,10 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
 
             //Change MQTT Topic
             getConfigTopic(MQTT_TOPIC_CONFIG_NAME).withValue("greengrass/nucleus/telemetry");
+            kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
 
-            assertFalse(secondPubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
-            assertTrue(secondMqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            assertFalse(secondPubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertTrue(secondMqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log detected.");
             assertTrue(secondConfigLog.await(30, TimeUnit.SECONDS), "Running with expected config.");
         }
         //--------------------------------------------------
@@ -218,10 +220,11 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
             getConfigTopic(MQTT_TOPIC_CONFIG_NAME).withValue("");
             //Turn pubsub on
             getConfigTopic(PUBSUB_PUBLISH_CONFIG_NAME).withValue(true);
+            kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
 
             assertTrue(thirdConfigLog.await(30, TimeUnit.SECONDS), "Running with expected config.");
-            assertTrue(thirdPubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
-            assertFalse(thirdMqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log not detected.");
+            assertTrue(thirdPubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(thirdMqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log not detected.");
             checkForPubSubMessages(20000);
         }
     }
@@ -250,10 +253,10 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
             }
         })) {
             startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_THRESHOLD_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
-            assertTrue(logFound.await(15, TimeUnit.SECONDS), "Invalid threshold detected.");
-            assertTrue(configLog.await(15, TimeUnit.SECONDS), "Running with expected config.");
-            assertTrue(pubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
-            assertTrue(mqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            assertTrue(logFound.await(30, TimeUnit.SECONDS), "Invalid threshold detected.");
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Running with expected config.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertTrue(mqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log detected.");
             checkForPubSubMessages(20000);
         }
     }
@@ -282,10 +285,10 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
             }
         })) {
             startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(NO_CONFIG_OPTIONS_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
-            assertTrue(logFound.await(15, TimeUnit.SECONDS), "Invalid config options detected.");
-            assertTrue(configLog.await(15, TimeUnit.SECONDS), "Running with default config.");
-            assertTrue(pubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
-            assertFalse(mqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            assertTrue(logFound.await(30, TimeUnit.SECONDS), "Invalid config options detected.");
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Running with default config.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(mqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log detected.");
             checkForPubSubMessages(130000);
         }
     }
@@ -314,10 +317,10 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
             }
         })) {
             startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_PUBSUB_PUBLISH_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
-            assertTrue(logFound.await(15, TimeUnit.SECONDS), "Invalid config options detected.");
-            assertTrue(configLog.await(15, TimeUnit.SECONDS), "Running with default config.");
-            assertTrue(pubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
-            assertFalse(mqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            assertTrue(logFound.await(30, TimeUnit.SECONDS), "Invalid config options detected.");
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Running with default config.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(mqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log detected.");
             checkForPubSubMessages(130000);
         }
     }
@@ -346,10 +349,10 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
             }
         })) {
             startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_TELEMETRY_PUBLISH_INTERVALMS_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
-            assertTrue(logFound.await(15, TimeUnit.SECONDS), "Invalid config options detected.");
-            assertTrue(configLog.await(15, TimeUnit.SECONDS), "Running with default config.");
-            assertTrue(pubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
-            assertFalse(mqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            assertTrue(logFound.await(30, TimeUnit.SECONDS), "Invalid config options detected.");
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Running with default config.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(mqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log detected.");
             checkForPubSubMessages(130000);
         }
     }
@@ -378,10 +381,10 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
             }
         })) {
             startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_MQTT_TOPIC_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
-            assertTrue(logFound.await(15, TimeUnit.SECONDS), "Invalid config options detected.");
-            assertTrue(configLog.await(15, TimeUnit.SECONDS), "Running with default config.");
-            assertTrue(pubsubLog.await(15, TimeUnit.SECONDS), "Pub/sub publish log detected.");
-            assertFalse(mqttLog.await(15, TimeUnit.SECONDS), "MQTT publish log detected.");
+            assertTrue(logFound.await(30, TimeUnit.SECONDS), "Invalid config options detected.");
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Running with default config.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertFalse(mqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log detected.");
             checkForPubSubMessages(130000);
         }
     }

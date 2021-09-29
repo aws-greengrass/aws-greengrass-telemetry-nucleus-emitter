@@ -23,12 +23,12 @@ public class Constants {
             + "'$local/greengrass/telemetry'";
     public static final String PUBSUB_PUBLISH_FAILURE_LOG = "Failed to publish local pub/sub message on topic "
                     + "'$local/greengrass/telemetry'";
+    public static final String TELEMETRY_PUBLISH_SCHEDULED = "Scheduling telemetry publish";
+    public static final String TELEMETRY_PUBLISH_STOPPING = "Stopping telemetry publish";
     public static final String PUBSUB_PUBLISH_STARTING = "Starting local pub/sub publishing";
-    public static final String PUBSUB_PUBLISH_STOPPING = "Stopping local pub/sub publishing";
     public static final String MQTT_PUBLISH_SUCCESS_LOG = "Published MQTT message on topic '{}'";
     public static final String MQTT_PUBLISH_FAILURE_LOG = "Failed to publish MQTT message on topic '{}'";
     public static final String MQTT_PUBLISH_STARTING = "Starting MQTT publishing";
-    public static final String MQTT_PUBLISH_STOPPING = "Stopping MQTT publishing";
     public static final String INVALID_PUBLISH_THRESHOLD_LOG = "Publish interval should not be smaller than 500ms. "
             + "Using minimum of 500ms";
     public static final String STARTUP_CONFIGURATION_LOG = "Starting telemetry emission with pubSubPublish:{}, "

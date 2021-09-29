@@ -40,19 +40,17 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.INVALID_PUB
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.JSON_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MIN_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_PUBLISH_STARTING;
-import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_PUBLISH_STOPPING;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_STARTING;
-import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_STOPPING;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.STARTUP_CONFIGURATION_LOG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_SCHEDULED;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_STOPPING;
 
 @ImplementsService(name = AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)
 public class NucleusEmitter extends PluginService {
 
     private final ScheduledExecutorService ses;
-    private final Object telemetryPubSubPublishInProgressLock = new Object();
-    private final Object telemetryMqttPublishInProgressLock = new Object();
-    private ScheduledFuture<?> telemetryPubSubPublishFuture;
-    private ScheduledFuture<?> telemetryMqttPublishFuture;
+    private final Object telemetryPublishInProgressLock = new Object();
+    private ScheduledFuture<?> telemetryPublishFuture;
 
     @Getter(AccessLevel.PACKAGE) // Needed for unit tests.
     private final AtomicReference<NucleusEmitterConfiguration> currentConfiguration =
@@ -63,7 +61,7 @@ public class NucleusEmitter extends PluginService {
     private final SystemMetricsEmitter sme;
     private final KernelMetricsEmitter kme;
 
-    //RTT publishers
+    //Metric publishers
     private final PubSubPublisher pubSubPublisher;
     private final MqttPublisher mqttPublisher;
 
@@ -107,6 +105,10 @@ public class NucleusEmitter extends PluginService {
         boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
                 != newConfiguration.getTelemetryPublishIntervalMs();
 
+        if (!pubSubPublishChanged && !mqttTopicChanged && !telemetryPublishIntervalMsChanged) {
+            return;
+        }
+
         //If the new requested publish interval is below the minimum, use the minimum
         if (newConfiguration.getTelemetryPublishIntervalMs() < MIN_TELEMETRY_PUBLISH_INTERVAL_MS) {
             logger.warn(INVALID_PUBLISH_THRESHOLD_LOG, MIN_TELEMETRY_PUBLISH_INTERVAL_MS,
@@ -117,14 +119,9 @@ public class NucleusEmitter extends PluginService {
                     .telemetryPublishIntervalMs(MIN_TELEMETRY_PUBLISH_INTERVAL_MS)
                     .build();
         }
-
+        
         currentConfiguration.set(newConfiguration);
-
-        if (telemetryPublishIntervalMsChanged) {
-            scheduleTelemetryPublish(true, true);
-        } else if (pubSubPublishChanged || mqttTopicChanged) {
-            scheduleTelemetryPublish(pubSubPublishChanged, mqttTopicChanged);
-        }
+        scheduleTelemetryPublish();
     }
 
     @SuppressWarnings("UseSpecificCatch")
@@ -132,54 +129,41 @@ public class NucleusEmitter extends PluginService {
     public void startup() {
         reportState(State.RUNNING);
         config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(subscribeToConfigChanges);
-        scheduleTelemetryPublish(true, true);
+        scheduleTelemetryPublish();
     }
 
-    private void publishMqttTelemetry(String mqttTopic) {
+    private void publishTelemetry(boolean pubSubPublish, boolean mqttPublish, String mqttTopic) {
         String jsonString = retrieveMetricsJson(jsonMapper);
-        this.mqttPublisher.publishMessage(jsonString, mqttTopic);
+        if (pubSubPublish) {
+            this.pubSubPublisher.publishMessage(jsonString, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
+        }
+        if (mqttPublish) {
+            this.mqttPublisher.publishMessage(jsonString, mqttTopic);
+        }
     }
 
-    private void publishPubSubTelemetry() {
-        String jsonString = retrieveMetricsJson(jsonMapper);
-        this.pubSubPublisher.publishMessage(jsonString, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
-    }
-
-    private void scheduleTelemetryPublish(boolean pubSubPublishChanged, boolean mqttTopicChanged) {
+    private void scheduleTelemetryPublish() {
         final NucleusEmitterConfiguration configuration = currentConfiguration.get();
         final boolean newPubPublish = configuration.isPubsubPublish();
         final String newMqttTopic = configuration.getMqttTopic();
         final long newTelemetryPublishIntervalMs = configuration.getTelemetryPublishIntervalMs();
 
-        //Only change if either telemetryPublishIntervalMs or pubSubPublish is changed
-        synchronized (telemetryPubSubPublishInProgressLock) {
-            if (pubSubPublishChanged) {
-                if (telemetryPubSubPublishFuture != null) {
-                    logger.debug(PUBSUB_PUBLISH_STOPPING);
-                    cancelJob(telemetryPubSubPublishFuture, telemetryPubSubPublishInProgressLock, false);
-                }
-                if (newPubPublish) {
-                    logger.debug(PUBSUB_PUBLISH_STARTING);
-                    telemetryPubSubPublishFuture = ses.scheduleAtFixedRate(
-                            this::publishPubSubTelemetry, 0,
-                            newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
-                }
+        //Start publish thread
+        synchronized (telemetryPublishInProgressLock) {
+            if (telemetryPublishFuture != null) {
+                logger.debug(TELEMETRY_PUBLISH_STOPPING);
+                cancelJob(telemetryPublishFuture, telemetryPublishInProgressLock, false);
             }
-        }
-        //Only change if either telemetryPublishIntervalMs or mqttTopic is changed
-        synchronized (telemetryMqttPublishInProgressLock) {
-            if (mqttTopicChanged) {
-                if (telemetryMqttPublishFuture != null) {
-                    logger.debug(MQTT_PUBLISH_STOPPING);
-                    cancelJob(telemetryMqttPublishFuture, telemetryMqttPublishInProgressLock, false);
-                }
-                if (!Utils.isEmpty(newMqttTopic)) {
-                        logger.debug(MQTT_PUBLISH_STARTING);
-                        telemetryMqttPublishFuture = ses.scheduleAtFixedRate(
-                                () -> publishMqttTelemetry(newMqttTopic), 0,
-                                newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
-                }
+            if (newPubPublish) {
+                logger.debug(PUBSUB_PUBLISH_STARTING);
             }
+            if (!Utils.isEmpty(newMqttTopic)) {
+                logger.debug(MQTT_PUBLISH_STARTING);
+            }
+            logger.debug(TELEMETRY_PUBLISH_SCHEDULED);
+            telemetryPublishFuture = ses.scheduleAtFixedRate(
+                    () -> publishTelemetry(newPubPublish,!Utils.isEmpty(newMqttTopic), newMqttTopic), 0,
+                    newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
         }
 
         logger.info(STARTUP_CONFIGURATION_LOG, newPubPublish,
@@ -202,8 +186,7 @@ public class NucleusEmitter extends PluginService {
 
     @Override
     public void shutdown() {
-        cancelJob(telemetryPubSubPublishFuture, telemetryPubSubPublishInProgressLock, true);
-        cancelJob(telemetryMqttPublishFuture, telemetryMqttPublishInProgressLock, true);
+        cancelJob(telemetryPublishFuture, telemetryPublishInProgressLock, true);
     }
 
     private void cancelJob(ScheduledFuture<?> future, Object lock, boolean immediately) {

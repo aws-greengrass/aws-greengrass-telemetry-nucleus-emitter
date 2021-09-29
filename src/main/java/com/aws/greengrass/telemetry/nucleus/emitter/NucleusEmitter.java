@@ -148,18 +148,17 @@ public class NucleusEmitter extends PluginService {
         final String newMqttTopic = configuration.getMqttTopic();
         final long newTelemetryPublishIntervalMs = configuration.getTelemetryPublishIntervalMs();
 
-        if (newPubPublish) {
-            logger.debug(PUBSUB_PUBLISH_STARTING);
-        }
-        if (!Utils.isEmpty(newMqttTopic)) {
-            logger.debug(MQTT_PUBLISH_STARTING);
-        }
-
         //Start publish thread
         synchronized (telemetryPublishInProgressLock) {
             if (telemetryPublishFuture != null) {
                 logger.debug(TELEMETRY_PUBLISH_STOPPING);
                 cancelJob(telemetryPublishFuture, telemetryPublishInProgressLock, false);
+            }
+            if (newPubPublish) {
+                logger.debug(PUBSUB_PUBLISH_STARTING);
+            }
+            if (!Utils.isEmpty(newMqttTopic)) {
+                logger.debug(MQTT_PUBLISH_STARTING);
             }
             logger.debug(TELEMETRY_PUBLISH_SCHEDULED);
             telemetryPublishFuture = ses.scheduleAtFixedRate(

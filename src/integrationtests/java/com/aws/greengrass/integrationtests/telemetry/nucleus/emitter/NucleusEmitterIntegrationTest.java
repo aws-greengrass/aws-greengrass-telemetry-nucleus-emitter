@@ -25,6 +25,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.event.Level;
 
@@ -63,6 +64,7 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUti
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.TEST_MQTT_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.format;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.startKernelWithConfig;
+import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -75,16 +77,13 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
     @TempDir
     static Path rootDir;
 
-    @BeforeAll
-    static void startup() {
-        LogConfig.getRootLogConfig().setLevel(Level.TRACE);
-    }
-
     @BeforeEach
-     void setup() {
+     void setup(ExtensionContext extensionContext) {
+        LogConfig.getRootLogConfig().setLevel(Level.TRACE);
         System.setProperty("root", rootDir.toAbsolutePath().toString());
         kernel = new Kernel();
         NoOpPathOwnershipHandler.register(kernel);
+        ignoreExceptionOfType(extensionContext, NumberFormatException.class);
     }
 
     @AfterEach

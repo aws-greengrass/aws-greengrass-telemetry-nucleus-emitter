@@ -26,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.inject.Inject;
 
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({ @Inject}))
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({@Inject}))
 public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
     private static final int MB_CONVERTER = 1024 * 1024;
     private static final int PERCENTAGE_CONVERTER = 100;
@@ -37,6 +37,7 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
 
     /**
      * Retrieve kernel component state metrics.
+     *
      * @return a list of {@link Metric}
      */
     @Override
@@ -72,6 +73,31 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
                 .unit(TelemetryUnit.Megabytes)
                 .aggregation(TelemetryAggregation.Count)
                 .value((memory.getTotal() - memory.getAvailable()) / MB_CONVERTER)
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name("SystemMemUsagePercentage")
+                .unit(TelemetryUnit.Percent)
+                .aggregation(TelemetryAggregation.Maximum)
+                .value(((double)(memory.getTotal() - memory.getAvailable()) / memory.getTotal()) * PERCENTAGE_CONVERTER)
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        double maxUsedSpacePercentage = systemInfo.getOperatingSystem().getFileSystem().
+                getFileStores(true).stream()
+                    .map(d -> 1.0 - ((double) d.getUsableSpace() / d.getTotalSpace()))
+                    .mapToDouble(Double::doubleValue).max().getAsDouble();
+
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name("SystemDiskUsagePercentage")
+                .unit(TelemetryUnit.Percent)
+                .aggregation(TelemetryAggregation.Maximum)
+                .value(maxUsedSpacePercentage * PERCENTAGE_CONVERTER)
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);

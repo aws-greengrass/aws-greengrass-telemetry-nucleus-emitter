@@ -67,6 +67,7 @@ public class NucleusEmitter extends PluginService {
 
     private final ChildChanged subscribeToConfigChanges = (what, topic) ->
             handleConfiguration(this.config.lookupTopics(CONFIGURATION_CONFIG_KEY));
+    private ScheduledFuture<?> telemetryAlertPublishFuture;
 
     /**
      *  Constructs a new NucleusEmitter to start publishing telemetry from the Nucleus.
@@ -142,6 +143,48 @@ public class NucleusEmitter extends PluginService {
         }
     }
 
+    private void publishTelemetryMessage(boolean pubSubPublish, boolean mqttPublish, String mqttTopic, Metric telemetryMetric){
+        String jsonString = null;
+        try {
+            jsonString = jsonMapper.writeValueAsString(telemetryMetric);
+        } catch (JsonProcessingException e) {
+           return;
+        }
+        if (pubSubPublish) {
+            this.pubSubPublisher.publishMessage(jsonString, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
+        }
+        if (mqttPublish) {
+            this.mqttPublisher.publishMessage(jsonString, mqttTopic);
+        }
+    }
+
+    protected void publishAlertTelemetry(boolean pubSubPublish, boolean mqttPublish, String mqttTopic){
+        List<Metric> metrics = Stream.of(sme.getMetrics(), kme.getMetrics())
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList());
+
+        for (Metric m: metrics) {
+            if(m.getName().equals("CpuUsage")){
+                double cpuUsagePercentage = (double)m.getValue();
+                if(cpuUsagePercentage > 95){
+                    publishTelemetryMessage(pubSubPublish, mqttPublish, mqttTopic, m);
+                }
+            }
+            if(m.getName().equals("SystemMemUsagePercentage")){
+                double systemMemUsagePercentage = (double)m.getValue();
+                if(systemMemUsagePercentage > 95){
+                    publishTelemetryMessage(pubSubPublish, mqttPublish, mqttTopic, m);
+                }
+            }
+            if(m.getName().equals("SystemDiskUsagePercentage")){
+                double systemDiskUsagePercentage = (double)m.getValue();
+                if(systemDiskUsagePercentage > 95){
+                    publishTelemetryMessage(pubSubPublish, mqttPublish, mqttTopic, m);
+                }
+            }
+        }
+    }
+
     private void scheduleTelemetryPublish() {
         final NucleusEmitterConfiguration configuration = currentConfiguration.get();
         final boolean newPubPublish = configuration.isPubsubPublish();
@@ -163,6 +206,10 @@ public class NucleusEmitter extends PluginService {
             logger.debug(TELEMETRY_PUBLISH_SCHEDULED);
             telemetryPublishFuture = ses.scheduleAtFixedRate(
                     () -> publishTelemetry(newPubPublish,!Utils.isEmpty(newMqttTopic), newMqttTopic), 0,
+                    newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
+
+            telemetryAlertPublishFuture = ses.scheduleAtFixedRate(
+                    () -> publishAlertTelemetry(newPubPublish,!Utils.isEmpty(newMqttTopic), newMqttTopic), 0,
                     newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
         }
 

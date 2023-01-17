@@ -8,6 +8,8 @@ package com.aws.greengrass.telemetry.nucleus.emitter;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.telemetry.impl.Metric;
+import com.aws.greengrass.telemetry.models.TelemetryAggregation;
+import com.aws.greengrass.telemetry.models.TelemetryUnit;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.KernelMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.SystemMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.publisher.MqttPublisher;
@@ -33,6 +35,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -59,10 +62,7 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUti
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class NucleusEmitterTest extends GGServiceTestUtil {
@@ -224,5 +224,40 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
         NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
         assertEquals("", currentConfiguration.getMqttTopic());
+    }
+
+    @Test
+    void GIVEN_valid_alert_metrics_WHEN_publishing_to_iot_core_THEN_ipc_publishes_message() throws IOException {
+        initializeMockedConfig();
+        List<Metric> mockAlertSmeMetrics = new ArrayList<Metric>();
+        mockAlertSmeMetrics.add(Metric.builder()
+                    .namespace(SystemMetricsEmitter.NAMESPACE)
+                    .name("CpuUsage")
+                    .value(96.0)
+                        .aggregation(TelemetryAggregation.Maximum)
+                        .unit(TelemetryUnit.Percent)
+                    .build());
+        mockAlertSmeMetrics.add(Metric.builder()
+                .namespace(SystemMetricsEmitter.NAMESPACE)
+                .name("SystemMemUsagePercentage")
+                .value(96.0)
+                .aggregation(TelemetryAggregation.Maximum)
+                .unit(TelemetryUnit.Percent)
+                .build());
+        mockAlertSmeMetrics.add(Metric.builder()
+                .namespace(SystemMetricsEmitter.NAMESPACE)
+                .name("SystemDiskUsagePercentage")
+                .value(96.0)
+                .aggregation(TelemetryAggregation.Maximum)
+                .unit(TelemetryUnit.Percent)
+                .build());
+
+        when(mockSme.getMetrics()).thenReturn(mockAlertSmeMetrics);
+        when(mockKme.getMetrics()).thenReturn(mockKmeMetrics);
+
+        nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
+        nucleusEmitter.publishAlertTelemetry(true, false, "test-topic");
+
+        verify(mockPubSubPublisher, times(3)).publishMessage(any(), any());
     }
 }

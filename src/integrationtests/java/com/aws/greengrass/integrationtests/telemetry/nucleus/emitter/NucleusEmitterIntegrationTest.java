@@ -411,7 +411,7 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
         try {
             final ObjectMapper mapper = new ObjectMapper();
             List<Metric> retrievedMetrics = mapper.readValue(json, new TypeReference<List<Metric>>(){});
-            assertEquals(12, retrievedMetrics.size());
+            assertEquals(14, retrievedMetrics.size());
             return true;
         } catch (IOException e) {
             return false;

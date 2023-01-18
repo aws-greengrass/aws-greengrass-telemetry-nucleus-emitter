@@ -231,12 +231,12 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         initializeMockedConfig();
         List<Metric> mockAlertSmeMetrics = new ArrayList<Metric>();
         mockAlertSmeMetrics.add(Metric.builder()
-                    .namespace(SystemMetricsEmitter.NAMESPACE)
-                    .name("CpuUsage")
-                    .value(96.0)
-                        .aggregation(TelemetryAggregation.Maximum)
-                        .unit(TelemetryUnit.Percent)
-                    .build());
+                .namespace(SystemMetricsEmitter.NAMESPACE)
+                .name("CpuUsage")
+                .value(96.0)
+                .aggregation(TelemetryAggregation.Maximum)
+                .unit(TelemetryUnit.Percent)
+                .build());
         mockAlertSmeMetrics.add(Metric.builder()
                 .namespace(SystemMetricsEmitter.NAMESPACE)
                 .name("SystemMemUsagePercentage")

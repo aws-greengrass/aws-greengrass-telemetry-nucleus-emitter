@@ -1,0 +1,36 @@
+{
+  "RecipeFormatVersion": "2020-01-25",
+  "ComponentName": "aws.greengrass.telemetry.NucleusEmitter",
+  "ComponentVersion": "{COMPONENT_VERSION}",
+  "ComponentType": "aws.greengrass.plugin",
+  "ComponentDescription": "Publishes real-time system telemetry locally and to AWS IoT Core.",
+  "ComponentPublisher": "{COMPONENT_PUBLISHER}",
+  "ComponentConfiguration": {
+    "DefaultConfiguration": {
+      "telemetryPublishIntervalMs": "60000",
+      "pubSubPublish": "true",
+      "mqttTopic": ""
+    }
+  },
+  "ComponentDependencies": {
+  },
+  "Manifests": [
+    {
+      "Platform": {
+        "os": "*"
+      },
+      "Lifecycle": {},
+      "Artifacts": [
+        {
+          "URI": "s3://BUCKET_NAME/COMPONENT_NAME/COMPONENT_VERSION/aws.greengrass.telemetry.NucleusEmitter.jar",
+          "Unarchive": "NONE",
+          "Permission": {
+            "Read": "OWNER",
+            "Execute": "NONE"
+          }
+        }
+      ]
+    }
+  ],
+  "Lifecycle": {}
+}

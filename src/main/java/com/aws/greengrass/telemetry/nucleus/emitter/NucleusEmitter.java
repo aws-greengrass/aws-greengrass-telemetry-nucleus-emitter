@@ -112,12 +112,14 @@ public class NucleusEmitter extends PluginService {
 
         boolean pubSubPublishChanged = configuration.isPubsubPublish() != newConfiguration.isPubsubPublish();
         boolean mqttTopicChanged = !configuration.getMqttTopic().equals(newConfiguration.getMqttTopic());
-        // TODO if alarms topic changed...
+        // TODO consistent naming
+        boolean alarmsMqttTopicChanged = !configuration.getAlertsMqttTopic().equals(newConfiguration.getMqttTopic());
         boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
                 != newConfiguration.getTelemetryPublishIntervalMs();
         // TODO if alarm config changes, restart alarm
 
-        if (!pubSubPublishChanged && !mqttTopicChanged && !telemetryPublishIntervalMsChanged) {
+        if (!pubSubPublishChanged && !mqttTopicChanged
+                && !telemetryPublishIntervalMsChanged && !alarmsMqttTopicChanged) {
             return;
         }
 

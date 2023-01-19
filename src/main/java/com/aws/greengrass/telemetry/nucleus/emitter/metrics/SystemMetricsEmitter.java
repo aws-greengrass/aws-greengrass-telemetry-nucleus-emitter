@@ -44,41 +44,34 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
      */
     @Override
     public List<Metric> getMetrics() {
-        List<Metric> metricsList = new ArrayList<>();
+        GlobalMemory memory = SYSTEM_INFO.getHardware().getMemory();
         long timestamp = Instant.now().toEpochMilli();
 
-        Metric metric = cpuMetric.get();
-        metric.setTimestamp(timestamp);
-        metricsList.add(metric);
-
-        metric = Metric.builder()
+        List<Metric> metrics = new ArrayList<>();
+        metrics.add(cpuMetric.get());
+        // TODO refactor to class
+        metrics.add(Metric.builder()
                 .namespace(NAMESPACE)
                 .name("TotalNumberOfFDs")
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Count)
                 .value(SYSTEM_INFO.getOperatingSystem().getFileSystem().getOpenFileDescriptors())
-                .timestamp(timestamp)
-                .build();
-        metricsList.add(metric);
-
-        GlobalMemory memory = SYSTEM_INFO.getHardware().getMemory();
-        metric = Metric.builder()
+                .build());
+        // TODO refactor to class
+        metrics.add(Metric.builder()
                 .namespace(NAMESPACE)
                 .name("SystemMemUsage")
                 .unit(TelemetryUnit.Megabytes)
                 .aggregation(TelemetryAggregation.Count)
                 .value((memory.getTotal() - memory.getAvailable()) / MB_CONVERTER)
-                .timestamp(timestamp)
-                .build();
-        metricsList.add(metric);
+                .build());
+        metrics.add(memoryMetric.get(memory));
+        metrics.add(diskMetric.get());
 
-        metric = memoryMetric.get(memory);
-        metricsList.add(metric);
+        // consistent timestamp
+        metrics.forEach(m -> m.setTimestamp(timestamp));
 
-        metric = diskMetric.get();
-        metricsList.add(metric);
-
-        return metricsList;
+        return metrics;
     }
 }
 

@@ -43,12 +43,14 @@ public class NucleusEmitterConfiguration {
     String alertsMqttTopic = "";
 
     Alarm cpuAlarm;
+    Alarm memoryAlarm;
 
     @Getter
     @Setter
     @EqualsAndHashCode
     public static class Alarms {
         Alarm cpu;
+        Alarm memory;
     }
 
     @Getter
@@ -145,6 +147,7 @@ public class NucleusEmitterConfiguration {
                 .mqttTopic(mqttTopic)
                 .alertsMqttTopic(alertsMqttTopic)
                 .cpuAlarm(alarms == null ? null : alarms.getCpu())
+                .memoryAlarm(alarms == null ? null : alarms.getMemory())
                 .telemetryPublishIntervalMs(telemetryPublishIntervalMs)
                 .build();
     }

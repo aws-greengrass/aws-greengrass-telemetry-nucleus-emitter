@@ -15,6 +15,7 @@ import com.aws.greengrass.telemetry.nucleus.emitter.alarms.Monitor;
 import com.aws.greengrass.telemetry.nucleus.emitter.alarms.Threshold;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.CpuMetric;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.KernelMetricsEmitter;
+import com.aws.greengrass.telemetry.nucleus.emitter.metrics.MemoryMetric;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.SystemMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.publisher.MqttPublisher;
 import com.aws.greengrass.telemetry.nucleus.emitter.publisher.PubSubPublisher;
@@ -117,9 +118,11 @@ public class NucleusEmitter extends PluginService {
         boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
                 != newConfiguration.getTelemetryPublishIntervalMs();
         boolean cpuAlarmChanged = !Objects.equals(configuration.getCpuAlarm(), newConfiguration.getCpuAlarm());
+        boolean memoryAlarmChanged = !Objects.equals(configuration.getMemoryAlarm(), newConfiguration.getMemoryAlarm());
 
         if (!pubSubPublishChanged && !mqttTopicChanged
-                && !telemetryPublishIntervalMsChanged && !alarmsMqttTopicChanged && !cpuAlarmChanged) {
+                && !telemetryPublishIntervalMsChanged && !alarmsMqttTopicChanged
+                && !cpuAlarmChanged && !memoryAlarmChanged) {
             return;
         }
 
@@ -131,6 +134,8 @@ public class NucleusEmitter extends PluginService {
                     .pubsubPublish(newConfiguration.isPubsubPublish())
                     .mqttTopic(newConfiguration.getMqttTopic())
                     .alertsMqttTopic(newConfiguration.getAlertsMqttTopic())
+                    .cpuAlarm(newConfiguration.getCpuAlarm())
+                    .memoryAlarm(newConfiguration.getMemoryAlarm())
                     .telemetryPublishIntervalMs(MIN_TELEMETRY_PUBLISH_INTERVAL_MS)
                     .build();
         }
@@ -142,8 +147,16 @@ public class NucleusEmitter extends PluginService {
                     new CpuMetric(SystemMetricsEmitter.NAMESPACE),
                     newConfiguration.getCpuAlarm());
         }
+        if (memoryAlarmChanged) {
+            restartMonitorWithConfig(
+                    MemoryMetric.NAME,
+                    new MemoryMetric(SystemMetricsEmitter.NAMESPACE),
+                    newConfiguration.getMemoryAlarm());
+        }
+
 
         currentConfiguration.set(newConfiguration);
+        // TODO don't do this if only alarms changed
         scheduleTelemetryPublish();
     }
 
@@ -221,12 +234,6 @@ public class NucleusEmitter extends PluginService {
                 .collect(Collectors.toList());
 
         for (Metric m: metrics) {
-            if(m.getName().equals("SystemMemUsagePercentage")){
-                double systemMemUsagePercentage = (double)m.getValue();
-                if(systemMemUsagePercentage > 95){
-                    publishTelemetryMessage(pubSubPublish, mqttPublish, mqttTopic, m);
-                }
-            }
             if(m.getName().equals("SystemDiskUsagePercentage")){
                 double systemDiskUsagePercentage = (double)m.getValue();
                 if(systemDiskUsagePercentage > 95){

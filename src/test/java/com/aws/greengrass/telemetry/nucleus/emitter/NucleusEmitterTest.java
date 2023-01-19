@@ -259,14 +259,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
     void GIVEN_valid_alert_metrics_WHEN_publishing_to_iot_core_THEN_ipc_publishes_message() {
         initializeMockedConfig();
         List<Metric> mockAlertSmeMetrics = new ArrayList<>();
-        // TODO test with CpuMetric
-        mockAlertSmeMetrics.add(Metric.builder()
-                .namespace(SystemMetricsEmitter.NAMESPACE)
-                .name("SystemMemUsagePercentage")
-                .value(96.0)
-                .aggregation(TelemetryAggregation.Maximum)
-                .unit(TelemetryUnit.Percent)
-                .build());
+        // TODO test with CpuMetric/MemoryMetric
         mockAlertSmeMetrics.add(Metric.builder()
                 .namespace(SystemMetricsEmitter.NAMESPACE)
                 .name("SystemDiskUsagePercentage")
@@ -281,6 +274,6 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
         nucleusEmitter.publishAlertTelemetry(true, false, TEST_ALERTS_MQTT_TOPIC);
 
-        verify(mockPubSubPublisher, times(2)).publishMessage(any(), any());
+        verify(mockPubSubPublisher, times(1)).publishMessage(any(), any());
     }
 }

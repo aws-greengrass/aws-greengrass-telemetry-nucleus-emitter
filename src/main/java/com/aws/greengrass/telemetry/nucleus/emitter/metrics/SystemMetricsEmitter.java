@@ -20,7 +20,6 @@ import oshi.hardware.GlobalMemory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static com.aws.greengrass.telemetry.nucleus.emitter.utils.System.SYSTEM_INFO;
 
@@ -29,10 +28,12 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
     private static final int PERCENTAGE_CONVERTER = 100;
     public static final String NAMESPACE = "SystemMetrics";
 
-    private final Supplier<Metric> cpuMetric;
+    private final CpuMetric cpuMetric;
+    private final MemoryMetric memoryMetric;
 
     public SystemMetricsEmitter() {
         this.cpuMetric = new CpuMetric(NAMESPACE);
+        this.memoryMetric = new MemoryMetric(NAMESPACE);
     }
 
     /**
@@ -70,14 +71,7 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
                 .build();
         metricsList.add(metric);
 
-        metric = Metric.builder()
-                .namespace(NAMESPACE)
-                .name("SystemMemUsagePercentage")
-                .unit(TelemetryUnit.Percent)
-                .aggregation(TelemetryAggregation.Maximum)
-                .value(((double)(memory.getTotal() - memory.getAvailable()) / memory.getTotal()) * PERCENTAGE_CONVERTER)
-                .timestamp(timestamp)
-                .build();
+        metric = memoryMetric.get(memory);
         metricsList.add(metric);
 
         double maxUsedSpacePercentage = SYSTEM_INFO.getOperatingSystem().getFileSystem().

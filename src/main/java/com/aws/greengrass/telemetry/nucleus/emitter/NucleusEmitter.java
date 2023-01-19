@@ -138,6 +138,7 @@ public class NucleusEmitter extends PluginService {
                     .alertsMqttTopic(newConfiguration.getAlertsMqttTopic())
                     .cpuAlarm(newConfiguration.getCpuAlarm())
                     .memoryAlarm(newConfiguration.getMemoryAlarm())
+                    .diskAlarm(newConfiguration.getDiskAlarm())
                     .telemetryPublishIntervalMs(MIN_TELEMETRY_PUBLISH_INTERVAL_MS)
                     .build();
         }

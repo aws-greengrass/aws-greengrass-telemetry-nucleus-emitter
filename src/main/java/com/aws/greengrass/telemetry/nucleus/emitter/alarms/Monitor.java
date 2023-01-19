@@ -64,6 +64,11 @@ public class Monitor {
     public State evaluate() {
         datapoints.addLast(datapoint.get());
 
+        if (datapoints.size() < threshold.getEvaluationPeriods()) {
+            // not enough data
+            return State.OK;
+        }
+
         while (datapoints.size() > threshold.getEvaluationPeriods()) {
             datapoints.removeFirst();
         }

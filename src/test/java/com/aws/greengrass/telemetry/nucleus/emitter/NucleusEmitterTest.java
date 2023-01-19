@@ -45,6 +45,7 @@ import java.util.stream.Stream;
 
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.ALERTS_MQTT_TOPIC_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MIN_TELEMETRY_PUBLISH_INTERVAL_MS;
@@ -56,6 +57,7 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUti
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.MQTT_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.SAMPLE_RAW_KERNEL_METRICS_JSON;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.SAMPLE_RAW_SYSTEM_METRICS_JSON;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.TEST_ALERTS_MQTT_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.TEST_MQTT_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.readJsonFromFile;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.startKernelWithConfig;
@@ -159,6 +161,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
         assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals("", configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
+        assertEquals("", configTopic.find(ALERTS_MQTT_TOPIC_CONFIG_NAME).getOnce());
         assertEquals(Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS), configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
     }
 
@@ -170,6 +173,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).withValue("10000");
         assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals("", configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
+        assertEquals("", configTopic.find(ALERTS_MQTT_TOPIC_CONFIG_NAME).getOnce());
         assertEquals("10000", configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
     }
 
@@ -180,6 +184,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
         assertEquals("false", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals(TEST_MQTT_TOPIC, configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
+        assertEquals(TEST_ALERTS_MQTT_TOPIC, configTopic.find(ALERTS_MQTT_TOPIC_CONFIG_NAME).getOnce());
         assertEquals(Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS), configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
         //Turn off to ensure it shuts down correctly
         configTopic.find(MQTT_TOPIC_CONFIG_NAME).withValue("");
@@ -196,6 +201,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).withValue("true");
         assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals(TEST_MQTT_TOPIC, configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
+        assertEquals(TEST_ALERTS_MQTT_TOPIC, configTopic.find(ALERTS_MQTT_TOPIC_CONFIG_NAME).getOnce());
         assertEquals(Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS), configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
     }
 
@@ -205,6 +211,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
         assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals(TEST_MQTT_TOPIC, configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
+        assertEquals(TEST_ALERTS_MQTT_TOPIC, configTopic.find(ALERTS_MQTT_TOPIC_CONFIG_NAME).getOnce());
 
         kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
         //Kernel config is unchanged, plugin configuration is set to min
@@ -219,6 +226,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         Topics configTopic = Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY);
         assertEquals("true", configTopic.find(PUBSUB_PUBLISH_CONFIG_NAME).getOnce());
         assertEquals("", configTopic.find(MQTT_TOPIC_CONFIG_NAME).getOnce());
+        assertEquals("", configTopic.find(ALERTS_MQTT_TOPIC_CONFIG_NAME).getOnce());
         assertEquals(Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS), configTopic.find(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME).getOnce());
 
         //Try to update with invalid value
@@ -259,7 +267,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         when(mockKme.getMetrics()).thenReturn(mockKmeMetrics);
 
         nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
-        nucleusEmitter.publishAlertTelemetry(true, false, "test-topic");
+        nucleusEmitter.publishAlertTelemetry(true, false, TEST_ALERTS_MQTT_TOPIC);
 
         verify(mockPubSubPublisher, times(3)).publishMessage(any(), any());
     }

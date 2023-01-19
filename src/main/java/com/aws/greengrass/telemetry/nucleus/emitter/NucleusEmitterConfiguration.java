@@ -13,6 +13,8 @@ import org.apache.commons.lang3.BooleanUtils;
 
 import java.util.Map;
 
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.ALERTS_MQTT_TOPIC_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.ALERTS_MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_INVALID_OPTION_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_NAME;
@@ -33,13 +35,16 @@ public class NucleusEmitterConfiguration {
     @Builder.Default
     String mqttTopic = "";
     @Builder.Default
+    String alertsMqttTopic = "";
+
+    @Builder.Default
     long telemetryPublishIntervalMs = DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
 
     /**
      * Get the Nucleus Emitter configuration from the POJO map.
      * @param pojo  POJO Topics object.
      * @param logger Greengrass logger.
-     * @return  the Nucleus Emitter configuration.
+     * @return  the Nucleus Emitter configuration, or null if the POJO map is invalid.
      */
     public static NucleusEmitterConfiguration fromPojo(Map<String, Object> pojo, Logger logger) {
         if (pojo.isEmpty()) {
@@ -48,6 +53,7 @@ public class NucleusEmitterConfiguration {
         long telemetryPublishIntervalMs = DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
         boolean pubsubPublish = true;
         String mqttTopic = "";
+        String alertsMqttTopic = "";
         for (Map.Entry<String, Object> entry : pojo.entrySet()) {
             switch (entry.getKey()) {
                 case PUBSUB_PUBLISH_CONFIG_NAME:
@@ -84,6 +90,14 @@ public class NucleusEmitterConfiguration {
                         logger.error(MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG, entry.getValue());
                         return null;
                     }
+                case ALERTS_MQTT_TOPIC_CONFIG_NAME:
+                    if (entry.getValue() instanceof String) {
+                        alertsMqttTopic = Coerce.toString(entry.getValue());
+                        break;
+                    } else {
+                        logger.error(ALERTS_MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG, entry.getValue());
+                        return null;
+                    }
                 default:
                     logger.error(CONFIG_INVALID_OPTION_ERROR_LOG, entry.getKey());
                     return null;
@@ -93,6 +107,7 @@ public class NucleusEmitterConfiguration {
         return NucleusEmitterConfiguration.builder()
                 .pubsubPublish(pubsubPublish)
                 .mqttTopic(mqttTopic)
+                .alertsMqttTopic(alertsMqttTopic)
                 .telemetryPublishIntervalMs(telemetryPublishIntervalMs)
                 .build();
     }

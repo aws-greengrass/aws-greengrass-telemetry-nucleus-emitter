@@ -8,6 +8,7 @@ services:
     configuration:
       pubSubPublish: "true"
       mqttTopic: ""
+      alertsMqttTopic: ""
       telemetryPublishIntervalMs: "60000"
     dependencies:
       - "aws.greengrass.Nucleus:SOFT"

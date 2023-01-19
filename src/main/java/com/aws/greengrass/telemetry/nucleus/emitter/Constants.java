@@ -11,6 +11,7 @@ public class Constants {
 
     public static final String PUBSUB_PUBLISH_CONFIG_NAME = "pubSubPublish";
     public static final String MQTT_TOPIC_CONFIG_NAME = "mqttTopic";
+    public static final String ALERTS_MQTT_TOPIC_CONFIG_NAME = "alertsMqttTopic";
     public static final String TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME = "telemetryPublishIntervalMs";
     public static final String DEFAULT_TELEMETRY_PUBSUB_TOPIC = "$local/greengrass/telemetry";
 
@@ -41,6 +42,8 @@ public class Constants {
     public static final String PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG = "Could not parse the pubSubPublish config option"
             + " {}. Please make sure this is set to a valid boolean value";
     public static final String MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG = "Could not parse the mqttTopic config option {}."
+            + " Please make sure this is set to a valid topic string value";
+    public static final String ALERTS_MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG = "Could not parse the alertsMqttTopic config option {}."
             + " Please make sure this is set to a valid topic string value";
     public static final String TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG = "Could not parse the "
             + "telemetryPublishIntervalMs config option {}. Please make sure this is set to a valid non-zero long "

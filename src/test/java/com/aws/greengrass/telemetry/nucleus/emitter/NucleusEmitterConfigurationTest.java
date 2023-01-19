@@ -16,6 +16,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.ALERTS_MQTT_TOPIC_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.ALERTS_MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_INVALID_OPTION_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
@@ -42,6 +44,7 @@ public class NucleusEmitterConfigurationTest extends GGServiceTestUtil {
     void GIVEN_valid_config_options_THEN_parses_correctly() {
         Map<String, Object> pojo = new TreeMap<>();
         pojo.put(MQTT_TOPIC_CONFIG_NAME,"");
+        pojo.put(ALERTS_MQTT_TOPIC_CONFIG_NAME,"");
         pojo.put(PUBSUB_PUBLISH_CONFIG_NAME, true);
         pojo.put(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME, DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS);
         NucleusEmitterConfiguration generatedConfiguration = fromPojo(pojo, logger);
@@ -52,6 +55,7 @@ public class NucleusEmitterConfigurationTest extends GGServiceTestUtil {
     void GIVEN_valid_string_config_options_THEN_parses_correctly() {
         Map<String, Object> pojo = new TreeMap<>();
         pojo.put(MQTT_TOPIC_CONFIG_NAME,"");
+        pojo.put(ALERTS_MQTT_TOPIC_CONFIG_NAME,"");
         pojo.put(PUBSUB_PUBLISH_CONFIG_NAME, "true");
         pojo.put(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME, "60000");
         NucleusEmitterConfiguration generatedConfiguration = fromPojo(pojo, logger);
@@ -62,6 +66,7 @@ public class NucleusEmitterConfigurationTest extends GGServiceTestUtil {
     void GIVEN_invalid_pubSubPublish_option_THEN_fails() {
         Map<String, Object> pojo = new TreeMap<>();
         pojo.put(MQTT_TOPIC_CONFIG_NAME,"");
+        pojo.put(ALERTS_MQTT_TOPIC_CONFIG_NAME,"");
         pojo.put(PUBSUB_PUBLISH_CONFIG_NAME, "garbage");
         pojo.put(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME, DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS);
         NucleusEmitterConfiguration generatedConfiguration = fromPojo(pojo, logger);
@@ -73,11 +78,24 @@ public class NucleusEmitterConfigurationTest extends GGServiceTestUtil {
     void GIVEN_invalid_mqttTopic_option_THEN_fails() {
         Map<String, Object> pojo = new TreeMap<>();
         pojo.put(MQTT_TOPIC_CONFIG_NAME,4545);
+        pojo.put(ALERTS_MQTT_TOPIC_CONFIG_NAME,"");
         pojo.put(PUBSUB_PUBLISH_CONFIG_NAME, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
         pojo.put(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME, DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS);
         NucleusEmitterConfiguration generatedConfiguration = fromPojo(pojo, logger);
         assertNull(generatedConfiguration);
         verify(logger).error(MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG, 4545);
+    }
+
+    @Test
+    void GIVEN_invalid_alertsMqttTopic_option_THEN_fails() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(MQTT_TOPIC_CONFIG_NAME, "");
+        pojo.put(ALERTS_MQTT_TOPIC_CONFIG_NAME, 4545);
+        pojo.put(PUBSUB_PUBLISH_CONFIG_NAME, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
+        pojo.put(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME, DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS);
+        NucleusEmitterConfiguration generatedConfiguration = fromPojo(pojo, logger);
+        assertNull(generatedConfiguration);
+        verify(logger).error(ALERTS_MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG, 4545);
     }
 
     @Test
@@ -104,6 +122,12 @@ public class NucleusEmitterConfigurationTest extends GGServiceTestUtil {
         generatedConfiguration = fromPojo(pojo, logger);
         assertNull(generatedConfiguration);
         verify(logger).error(MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG, (Object) null);
+
+        pojo = new TreeMap<>();
+        pojo.put(ALERTS_MQTT_TOPIC_CONFIG_NAME,null);
+        generatedConfiguration = fromPojo(pojo, logger);
+        assertNull(generatedConfiguration);
+        verify(logger).error(ALERTS_MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG, (Object) null);
 
         pojo = new TreeMap<>();
         pojo.put(PUBSUB_PUBLISH_CONFIG_NAME, null);

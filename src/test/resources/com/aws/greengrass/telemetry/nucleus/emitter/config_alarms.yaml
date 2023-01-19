@@ -18,6 +18,20 @@ services:
           periodUnit: MINUTES
           datapoints: 1
           evaluationPeriod: 1
+        memory:
+          condition: ">"
+          value: 95
+          period: 1
+          periodUnit: MINUTES
+          datapoints: 1
+          evaluationPeriod: 1
+        disk:
+          condition: ">"
+          value: 95
+          period: 1
+          periodUnit: MINUTES
+          datapoints: 1
+          evaluationPeriod: 1
     dependencies:
       - "aws.greengrass.Nucleus:SOFT"
     version: "1.0.0"

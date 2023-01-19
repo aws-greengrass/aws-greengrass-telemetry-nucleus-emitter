@@ -14,6 +14,7 @@ import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.nucleus.emitter.alarms.Monitor;
 import com.aws.greengrass.telemetry.nucleus.emitter.alarms.Threshold;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.CpuMetric;
+import com.aws.greengrass.telemetry.nucleus.emitter.metrics.DiskMetric;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.KernelMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.MemoryMetric;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.SystemMetricsEmitter;
@@ -119,10 +120,11 @@ public class NucleusEmitter extends PluginService {
                 != newConfiguration.getTelemetryPublishIntervalMs();
         boolean cpuAlarmChanged = !Objects.equals(configuration.getCpuAlarm(), newConfiguration.getCpuAlarm());
         boolean memoryAlarmChanged = !Objects.equals(configuration.getMemoryAlarm(), newConfiguration.getMemoryAlarm());
+        boolean diskAlarmChanged = !Objects.equals(configuration.getDiskAlarm(), newConfiguration.getDiskAlarm());
 
         if (!pubSubPublishChanged && !mqttTopicChanged
                 && !telemetryPublishIntervalMsChanged && !alarmsMqttTopicChanged
-                && !cpuAlarmChanged && !memoryAlarmChanged) {
+                && !cpuAlarmChanged && !memoryAlarmChanged && !diskAlarmChanged) {
             return;
         }
 
@@ -152,6 +154,12 @@ public class NucleusEmitter extends PluginService {
                     MemoryMetric.NAME,
                     new MemoryMetric(SystemMetricsEmitter.NAMESPACE),
                     newConfiguration.getMemoryAlarm());
+        }
+        if (diskAlarmChanged) {
+            restartMonitorWithConfig(
+                    DiskMetric.NAME,
+                    new DiskMetric(SystemMetricsEmitter.NAMESPACE),
+                    newConfiguration.getDiskAlarm());
         }
 
 
@@ -228,18 +236,13 @@ public class NucleusEmitter extends PluginService {
         }
     }
 
+    // TODO remove
     protected void publishAlertTelemetry(boolean pubSubPublish, boolean mqttPublish, String mqttTopic){
         List<Metric> metrics = Stream.of(sme.getMetrics(), kme.getMetrics())
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
 
         for (Metric m: metrics) {
-            if(m.getName().equals("SystemDiskUsagePercentage")){
-                double systemDiskUsagePercentage = (double)m.getValue();
-                if(systemDiskUsagePercentage > 95){
-                    publishTelemetryMessage(pubSubPublish, mqttPublish, mqttTopic, m);
-                }
-            }
         }
     }
 
@@ -265,6 +268,7 @@ public class NucleusEmitter extends PluginService {
             telemetryPublishFuture = ses.scheduleAtFixedRate(
                     () -> publishTelemetry(newPubPublish, !Utils.isEmpty(newMqttTopic), newMqttTopic), 0,
                     newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
+            // TODO remove
             telemetryAlertPublishFuture = ses.scheduleAtFixedRate(
                     () -> publishAlertTelemetry(false, !Utils.isEmpty(alertsMqttTopic), alertsMqttTopic), 0,
                     newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
@@ -299,6 +303,7 @@ public class NucleusEmitter extends PluginService {
             if (telemetryPublishFuture != null) {
                 telemetryPublishFuture.cancel(interrupt);
             }
+            // TODO remove
             if (telemetryAlertPublishFuture != null) {
                 telemetryAlertPublishFuture.cancel(interrupt);
             }

@@ -25,15 +25,16 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.utils.System.SYSTEM_I
 
 public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
     private static final int MB_CONVERTER = 1024 * 1024;
-    private static final int PERCENTAGE_CONVERTER = 100;
     public static final String NAMESPACE = "SystemMetrics";
 
     private final CpuMetric cpuMetric;
     private final MemoryMetric memoryMetric;
+    private final DiskMetric diskMetric;
 
     public SystemMetricsEmitter() {
         this.cpuMetric = new CpuMetric(NAMESPACE);
         this.memoryMetric = new MemoryMetric(NAMESPACE);
+        this.diskMetric = new DiskMetric(NAMESPACE);
     }
 
     /**
@@ -74,19 +75,7 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
         metric = memoryMetric.get(memory);
         metricsList.add(metric);
 
-        double maxUsedSpacePercentage = SYSTEM_INFO.getOperatingSystem().getFileSystem().
-                getFileStores(true).stream()
-                    .map(d -> 1.0 - ((double) d.getUsableSpace() / d.getTotalSpace()))
-                    .mapToDouble(Double::doubleValue).max().getAsDouble();
-
-        metric = Metric.builder()
-                .namespace(NAMESPACE)
-                .name("SystemDiskUsagePercentage")
-                .unit(TelemetryUnit.Percent)
-                .aggregation(TelemetryAggregation.Maximum)
-                .value(maxUsedSpacePercentage * PERCENTAGE_CONVERTER)
-                .timestamp(timestamp)
-                .build();
+        metric = diskMetric.get();
         metricsList.add(metric);
 
         return metricsList;

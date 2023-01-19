@@ -44,6 +44,7 @@ public class NucleusEmitterConfiguration {
 
     Alarm cpuAlarm;
     Alarm memoryAlarm;
+    Alarm diskAlarm;
 
     @Getter
     @Setter
@@ -51,6 +52,7 @@ public class NucleusEmitterConfiguration {
     public static class Alarms {
         Alarm cpu;
         Alarm memory;
+        Alarm disk;
     }
 
     @Getter
@@ -148,6 +150,7 @@ public class NucleusEmitterConfiguration {
                 .alertsMqttTopic(alertsMqttTopic)
                 .cpuAlarm(alarms == null ? null : alarms.getCpu())
                 .memoryAlarm(alarms == null ? null : alarms.getMemory())
+                .diskAlarm(alarms == null ? null : alarms.getDisk())
                 .telemetryPublishIntervalMs(telemetryPublishIntervalMs)
                 .build();
     }

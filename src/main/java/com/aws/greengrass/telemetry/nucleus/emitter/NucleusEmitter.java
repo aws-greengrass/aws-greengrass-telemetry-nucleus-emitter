@@ -35,6 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -98,8 +99,6 @@ public class NucleusEmitter extends PluginService {
         this.pubSubPublisher = pubSubPublisher;
         this.mqttPublisher = mqttPublisher;
         this.ses = ses;
-        // TODO remove, hack to support unit test
-        configureMonitors();
     }
 
     private void handleConfiguration(Topics configurationTopics) {
@@ -117,11 +116,10 @@ public class NucleusEmitter extends PluginService {
         boolean alarmsMqttTopicChanged = !configuration.getAlertsMqttTopic().equals(newConfiguration.getAlertsMqttTopic());
         boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
                 != newConfiguration.getTelemetryPublishIntervalMs();
-        // TODO if alarm config changes, restart alarm
-        boolean alarmsChanged = !Objects.equals(configuration.getCpuAlarm(), newConfiguration.getCpuAlarm());
+        boolean cpuAlarmChanged = !Objects.equals(configuration.getCpuAlarm(), newConfiguration.getCpuAlarm());
 
         if (!pubSubPublishChanged && !mqttTopicChanged
-                && !telemetryPublishIntervalMsChanged && !alarmsMqttTopicChanged && !alarmsChanged) {
+                && !telemetryPublishIntervalMsChanged && !alarmsMqttTopicChanged && !cpuAlarmChanged) {
             return;
         }
 
@@ -136,30 +134,39 @@ public class NucleusEmitter extends PluginService {
                     .telemetryPublishIntervalMs(MIN_TELEMETRY_PUBLISH_INTERVAL_MS)
                     .build();
         }
-        
+
+        // TODO other monitors
+        if (cpuAlarmChanged) {
+            restartMonitorWithConfig(
+                    CpuMetric.NAME,
+                    new CpuMetric(SystemMetricsEmitter.NAMESPACE),
+                    newConfiguration.getCpuAlarm());
+        }
+
         currentConfiguration.set(newConfiguration);
         scheduleTelemetryPublish();
     }
 
-    // TODO call this from config change
-    private void configureMonitors() {
-        // TODO configurable
-        // TODO add other metrics
-        // TODO move metric names to constants
-        monitorsByMetricName.computeIfAbsent(CpuMetric.NAME, k ->
-                Monitor.builder()
-                        .ses(ses)
-                        .datapoint(new CpuMetric(SystemMetricsEmitter.NAMESPACE))
-                        .callback(this::handleMonitorState)
-                        .threshold(Threshold.builder()
-                                .condition(Threshold.Condition.GREATER)
-                                .value(95)
-                                .period(5)
-                                .periodTimeUnit(TimeUnit.SECONDS)
-                                .datapoints(1)
-                                .evaluationPeriods(1)
-                                .build())
-                        .build());
+    private void restartMonitorWithConfig(String name, Supplier<Metric> datapoint, NucleusEmitterConfiguration.Alarm conf) {
+        monitorsByMetricName.compute(name, (n, m) -> {
+            if (m != null) {
+                m.stop();
+            }
+            return Monitor.builder()
+                    .ses(ses)
+                    .datapoint(datapoint)
+                    .callback(this::handleMonitorState)
+                    // TODO validation
+                    .threshold(Threshold.builder()
+                            .condition(Threshold.Condition.fromExpr(conf.getCondition()).get())
+                            .value(conf.getValue())
+                            .period(conf.getPeriod())
+                            .periodTimeUnit(TimeUnit.valueOf(conf.getPeriodUnit()))
+                            .datapoints(conf.getDatapoints())
+                            .evaluationPeriods(conf.getEvaluationPeriod())
+                            .build())
+                    .build();
+        }).start();
     }
 
     private void handleMonitorState(Monitor.State state, List<Metric> datapoints) {

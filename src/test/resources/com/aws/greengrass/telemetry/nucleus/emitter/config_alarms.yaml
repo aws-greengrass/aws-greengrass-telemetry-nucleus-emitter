@@ -15,7 +15,7 @@ services:
           condition: ">"
           value: 95
           period: 1
-          periodUnit: minutes
+          periodUnit: MINUTES
           datapoints: 1
           evaluationPeriod: 1
     dependencies:

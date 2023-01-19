@@ -207,7 +207,7 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         assertEquals(">", currentConfiguration.getCpuAlarm().getCondition());
         assertEquals(95, currentConfiguration.getCpuAlarm().getValue());
         assertEquals(1, currentConfiguration.getCpuAlarm().getPeriod());
-        assertEquals("minutes", currentConfiguration.getCpuAlarm().getPeriodUnit());
+        assertEquals("MINUTES", currentConfiguration.getCpuAlarm().getPeriodUnit());
         assertEquals(1, currentConfiguration.getCpuAlarm().getDatapoints());
         assertEquals(1, currentConfiguration.getCpuAlarm().getEvaluationPeriod());
     }

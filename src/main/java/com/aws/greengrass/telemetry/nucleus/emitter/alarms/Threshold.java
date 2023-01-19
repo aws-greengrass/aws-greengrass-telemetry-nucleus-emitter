@@ -39,7 +39,7 @@ public class Threshold {
             this.expr = expr;
         }
 
-        static Optional<Condition> fromExpr(String expr) {
+        public static Optional<Condition> fromExpr(String expr) {
             return Arrays.stream(Condition.values())
                     .filter(c -> c.getExpr().equals(expr))
                     .findFirst();

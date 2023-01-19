@@ -237,16 +237,10 @@ class NucleusEmitterTest extends GGServiceTestUtil {
     }
 
     @Test
-    void GIVEN_valid_alert_metrics_WHEN_publishing_to_iot_core_THEN_ipc_publishes_message() throws IOException {
+    void GIVEN_valid_alert_metrics_WHEN_publishing_to_iot_core_THEN_ipc_publishes_message() {
         initializeMockedConfig();
-        List<Metric> mockAlertSmeMetrics = new ArrayList<Metric>();
-        mockAlertSmeMetrics.add(Metric.builder()
-                .namespace(SystemMetricsEmitter.NAMESPACE)
-                .name("CpuUsage")
-                .value(96.0)
-                .aggregation(TelemetryAggregation.Maximum)
-                .unit(TelemetryUnit.Percent)
-                .build());
+        List<Metric> mockAlertSmeMetrics = new ArrayList<>();
+        // TODO test with CpuMetric
         mockAlertSmeMetrics.add(Metric.builder()
                 .namespace(SystemMetricsEmitter.NAMESPACE)
                 .name("SystemMemUsagePercentage")
@@ -268,6 +262,6 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         nucleusEmitter = new NucleusEmitter(this.config, mockSme, mockKme, mockPubSubPublisher, mockMqttPublisher, mockScheduledExecutorService);
         nucleusEmitter.publishAlertTelemetry(true, false, TEST_ALERTS_MQTT_TOPIC);
 
-        verify(mockPubSubPublisher, times(3)).publishMessage(any(), any());
+        verify(mockPubSubPublisher, times(2)).publishMessage(any(), any());
     }
 }

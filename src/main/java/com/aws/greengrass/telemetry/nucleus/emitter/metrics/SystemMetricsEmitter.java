@@ -15,25 +15,25 @@ package com.aws.greengrass.telemetry.nucleus.emitter.metrics;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import oshi.SystemInfo;
-import oshi.hardware.CentralProcessor;
 import oshi.hardware.GlobalMemory;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import javax.inject.Inject;
+import java.util.function.Supplier;
 
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({@Inject}))
+import static com.aws.greengrass.telemetry.nucleus.emitter.utils.System.SYSTEM_INFO;
+
 public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
     private static final int MB_CONVERTER = 1024 * 1024;
     private static final int PERCENTAGE_CONVERTER = 100;
     public static final String NAMESPACE = "SystemMetrics";
-    private static final SystemInfo systemInfo = new SystemInfo();
-    private static final CentralProcessor cpu = systemInfo.getHardware().getProcessor();
-    private long[] previousTicks = new long[CentralProcessor.TickType.values().length];
+
+    private final Supplier<Metric> cpuMetric;
+
+    public SystemMetricsEmitter() {
+        this.cpuMetric = new CpuMetric(NAMESPACE);
+    }
 
     /**
      * Retrieve kernel component state metrics.
@@ -45,15 +45,8 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
         List<Metric> metricsList = new ArrayList<>();
         long timestamp = Instant.now().toEpochMilli();
 
-        Metric metric = Metric.builder()
-                .namespace(NAMESPACE)
-                .name("CpuUsage")
-                .unit(TelemetryUnit.Percent)
-                .aggregation(TelemetryAggregation.Average)
-                .value(cpu.getSystemCpuLoadBetweenTicks(previousTicks) * PERCENTAGE_CONVERTER)
-                .timestamp(timestamp)
-                .build();
-        previousTicks = cpu.getSystemCpuLoadTicks();
+        Metric metric = cpuMetric.get();
+        metric.setTimestamp(timestamp);
         metricsList.add(metric);
 
         metric = Metric.builder()
@@ -61,12 +54,12 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
                 .name("TotalNumberOfFDs")
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Count)
-                .value(systemInfo.getOperatingSystem().getFileSystem().getOpenFileDescriptors())
+                .value(SYSTEM_INFO.getOperatingSystem().getFileSystem().getOpenFileDescriptors())
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
 
-        GlobalMemory memory = systemInfo.getHardware().getMemory();
+        GlobalMemory memory = SYSTEM_INFO.getHardware().getMemory();
         metric = Metric.builder()
                 .namespace(NAMESPACE)
                 .name("SystemMemUsage")
@@ -87,7 +80,7 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
                 .build();
         metricsList.add(metric);
 
-        double maxUsedSpacePercentage = systemInfo.getOperatingSystem().getFileSystem().
+        double maxUsedSpacePercentage = SYSTEM_INFO.getOperatingSystem().getFileSystem().
                 getFileStores(true).stream()
                     .map(d -> 1.0 - ((double) d.getUsableSpace() / d.getTotalSpace()))
                     .mapToDouble(Double::doubleValue).max().getAsDouble();

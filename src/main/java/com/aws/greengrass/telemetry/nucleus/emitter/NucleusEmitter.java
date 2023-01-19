@@ -13,6 +13,7 @@ import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.nucleus.emitter.alarms.Monitor;
 import com.aws.greengrass.telemetry.nucleus.emitter.alarms.Threshold;
+import com.aws.greengrass.telemetry.nucleus.emitter.metrics.CpuMetric;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.KernelMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.SystemMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.publisher.MqttPublisher;
@@ -24,18 +25,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
 import lombok.Getter;
 
+import javax.inject.Inject;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER;
@@ -115,7 +115,7 @@ public class NucleusEmitter extends PluginService {
         // TODO if alarms topic changed...
         boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
                 != newConfiguration.getTelemetryPublishIntervalMs();
-        // TODO if alarm config changes
+        // TODO if alarm config changes, restart alarm
 
         if (!pubSubPublishChanged && !mqttTopicChanged && !telemetryPublishIntervalMsChanged) {
             return;
@@ -142,14 +142,33 @@ public class NucleusEmitter extends PluginService {
         // TODO configurable
         // TODO add other metrics
         // TODO move metric names to constants
-        monitorsByMetricName.computeIfAbsent("CpuUsage", k -> new Monitor(Threshold.builder()
-                .condition(Threshold.Condition.GREATER)
-                .value(95)
-                .period(5)
-                .periodTimeUnit(TimeUnit.SECONDS)
-                .datapoints(1)
-                .evaluationPeriods(1)
-                .build()));
+        monitorsByMetricName.computeIfAbsent("CpuUsage", k ->
+                Monitor.builder()
+                        .ses(ses)
+                        .datapoint(new CpuMetric(SystemMetricsEmitter.NAMESPACE))
+                        .callback(this::handleMonitorState)
+                        .threshold(Threshold.builder()
+                                .condition(Threshold.Condition.GREATER)
+                                .value(95)
+                                .period(5)
+                                .periodTimeUnit(TimeUnit.SECONDS)
+                                .datapoints(1)
+                                .evaluationPeriods(1)
+                                .build())
+                        .build());
+    }
+
+    private void handleMonitorState(Monitor.State state, List<Metric> datapoints) {
+        // TODO revise message to include all metrics, or a summary?
+        if (state == Monitor.State.ALARM) {
+            // TODO check if this needs to be async
+            publishTelemetryMessage(
+                    false,
+                    !Utils.isEmpty(currentConfiguration.get().getAlertsMqttTopic()) ,
+                    currentConfiguration.get().getAlertsMqttTopic(),
+                    datapoints.get(0)
+            );
+        }
     }
 
     @Override
@@ -157,6 +176,7 @@ public class NucleusEmitter extends PluginService {
         reportState(State.RUNNING);
         config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(subscribeToConfigChanges);
         scheduleTelemetryPublish();
+        monitorsByMetricName.values().forEach(Monitor::start);
     }
 
     private void publishTelemetry(boolean pubSubPublish, boolean mqttPublish, String mqttTopic) {
@@ -184,25 +204,12 @@ public class NucleusEmitter extends PluginService {
         }
     }
 
-    private Optional<Monitor> getMonitor(String metricName) {
-        return Optional.ofNullable(monitorsByMetricName.get(metricName));
-    }
-
     protected void publishAlertTelemetry(boolean pubSubPublish, boolean mqttPublish, String mqttTopic){
         List<Metric> metrics = Stream.of(sme.getMetrics(), kme.getMetrics())
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
 
         for (Metric m: metrics) {
-            if(m.getName().equals("CpuUsage")){
-                double cpuUsagePercentage = (double)m.getValue();
-                getMonitor("CpuUsage")
-                        .ifPresent(monitor -> {
-                            if (monitor.evaluate(cpuUsagePercentage) == Monitor.State.ALARM) {
-                                publishTelemetryMessage(pubSubPublish, mqttPublish, mqttTopic, m);
-                            }
-                        });
-            }
             if(m.getName().equals("SystemMemUsagePercentage")){
                 double systemMemUsagePercentage = (double)m.getValue();
                 if(systemMemUsagePercentage > 95){
@@ -266,6 +273,7 @@ public class NucleusEmitter extends PluginService {
     @Override
     public void shutdown() {
         cancelPublishTasks(true);
+        monitorsByMetricName.values().forEach(Monitor::stop);
     }
 
     private void cancelPublishTasks(boolean interrupt) {

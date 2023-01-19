@@ -188,8 +188,8 @@ public class NucleusEmitter extends PluginService {
         final NucleusEmitterConfiguration configuration = currentConfiguration.get();
         final boolean newPubPublish = configuration.isPubsubPublish();
         final String newMqttTopic = configuration.getMqttTopic();
+        final String alertsMqttTopic = configuration.getAlertsMqttTopic();
         final long newTelemetryPublishIntervalMs = configuration.getTelemetryPublishIntervalMs();
-        final String alertMqttTopic = "system-alerts";
         //Start publish thread
         synchronized (publishTaskLock) {
             if (telemetryPublishFuture != null) {
@@ -207,7 +207,7 @@ public class NucleusEmitter extends PluginService {
                     () -> publishTelemetry(newPubPublish, !Utils.isEmpty(newMqttTopic), newMqttTopic), 0,
                     newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
             telemetryAlertPublishFuture = ses.scheduleAtFixedRate(
-                    () -> publishAlertTelemetry(false, !Utils.isEmpty(alertMqttTopic), alertMqttTopic), 0,
+                    () -> publishAlertTelemetry(false, !Utils.isEmpty(alertsMqttTopic), alertsMqttTopic), 0,
                     newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
         }
 

@@ -49,8 +49,9 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_P
 public class NucleusEmitter extends PluginService {
 
     private final ScheduledExecutorService ses;
-    private final Object telemetryPublishInProgressLock = new Object();
+    private final Object publishTaskLock = new Object();
     private ScheduledFuture<?> telemetryPublishFuture;
+    private ScheduledFuture<?> telemetryAlertPublishFuture;
 
     @Getter(AccessLevel.PACKAGE) // Needed for unit tests.
     private final AtomicReference<NucleusEmitterConfiguration> currentConfiguration =
@@ -67,7 +68,6 @@ public class NucleusEmitter extends PluginService {
 
     private final ChildChanged subscribeToConfigChanges = (what, topic) ->
             handleConfiguration(this.config.lookupTopics(CONFIGURATION_CONFIG_KEY));
-    private ScheduledFuture<?> telemetryAlertPublishFuture;
 
     /**
      *  Constructs a new NucleusEmitter to start publishing telemetry from the Nucleus.
@@ -125,7 +125,6 @@ public class NucleusEmitter extends PluginService {
         scheduleTelemetryPublish();
     }
 
-    @SuppressWarnings("UseSpecificCatch")
     @Override
     public void startup() {
         reportState(State.RUNNING);
@@ -192,10 +191,10 @@ public class NucleusEmitter extends PluginService {
         final long newTelemetryPublishIntervalMs = configuration.getTelemetryPublishIntervalMs();
         final String alertMqttTopic = "system-alerts";
         //Start publish thread
-        synchronized (telemetryPublishInProgressLock) {
+        synchronized (publishTaskLock) {
             if (telemetryPublishFuture != null) {
                 logger.debug(TELEMETRY_PUBLISH_STOPPING);
-                cancelJob(telemetryPublishFuture, telemetryPublishInProgressLock, false);
+                cancelPublishTasks(false);
             }
             if (newPubPublish) {
                 logger.debug(PUBSUB_PUBLISH_STARTING);
@@ -205,11 +204,10 @@ public class NucleusEmitter extends PluginService {
             }
             logger.debug(TELEMETRY_PUBLISH_SCHEDULED);
             telemetryPublishFuture = ses.scheduleAtFixedRate(
-                    () -> publishTelemetry(newPubPublish,!Utils.isEmpty(newMqttTopic), newMqttTopic), 0,
+                    () -> publishTelemetry(newPubPublish, !Utils.isEmpty(newMqttTopic), newMqttTopic), 0,
                     newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
-
             telemetryAlertPublishFuture = ses.scheduleAtFixedRate(
-                    () -> publishAlertTelemetry(false,!Utils.isEmpty(alertMqttTopic), alertMqttTopic), 0,
+                    () -> publishAlertTelemetry(false, !Utils.isEmpty(alertMqttTopic), alertMqttTopic), 0,
                     newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
         }
 
@@ -233,13 +231,16 @@ public class NucleusEmitter extends PluginService {
 
     @Override
     public void shutdown() {
-        cancelJob(telemetryPublishFuture, telemetryPublishInProgressLock, true);
+        cancelPublishTasks(true);
     }
 
-    private void cancelJob(ScheduledFuture<?> future, Object lock, boolean immediately) {
-        synchronized (lock) {
-            if (future != null) {
-                future.cancel(immediately);
+    private void cancelPublishTasks(boolean interrupt) {
+        synchronized (publishTaskLock) {
+            if (telemetryPublishFuture != null) {
+                telemetryPublishFuture.cancel(interrupt);
+            }
+            if (telemetryAlertPublishFuture != null) {
+                telemetryAlertPublishFuture.cancel(interrupt);
             }
         }
     }

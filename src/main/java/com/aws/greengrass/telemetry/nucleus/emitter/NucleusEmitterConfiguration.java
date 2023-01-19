@@ -10,7 +10,6 @@ import com.aws.greengrass.util.Coerce;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.Value;
 import org.apache.commons.lang3.BooleanUtils;

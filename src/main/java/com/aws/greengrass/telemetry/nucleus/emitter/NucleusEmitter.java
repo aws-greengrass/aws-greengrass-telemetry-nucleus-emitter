@@ -60,7 +60,6 @@ public class NucleusEmitter extends PluginService {
     private final ScheduledExecutorService ses;
     private final Object publishTaskLock = new Object();
     private ScheduledFuture<?> telemetryPublishFuture;
-    private ScheduledFuture<?> telemetryAlertPublishFuture;
 
     @Getter(AccessLevel.PACKAGE) // Needed for unit tests.
     private final AtomicReference<NucleusEmitterConfiguration> currentConfiguration =
@@ -143,7 +142,6 @@ public class NucleusEmitter extends PluginService {
                     .build();
         }
 
-        // TODO other monitors
         if (cpuAlarmChanged) {
             restartMonitorWithConfig(
                     CpuMetric.NAME,
@@ -223,7 +221,7 @@ public class NucleusEmitter extends PluginService {
     }
 
     private void publishTelemetryMessage(boolean pubSubPublish, boolean mqttPublish, String mqttTopic, Metric telemetryMetric){
-        String jsonString = null;
+        String jsonString;
         try {
             jsonString = jsonMapper.writeValueAsString(telemetryMetric);
         } catch (JsonProcessingException e) {
@@ -237,27 +235,16 @@ public class NucleusEmitter extends PluginService {
         }
     }
 
-    // TODO remove
-    protected void publishAlertTelemetry(boolean pubSubPublish, boolean mqttPublish, String mqttTopic){
-        List<Metric> metrics = Stream.of(sme.getMetrics(), kme.getMetrics())
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList());
-
-        for (Metric m: metrics) {
-        }
-    }
-
     private void scheduleTelemetryPublish() {
         final NucleusEmitterConfiguration configuration = currentConfiguration.get();
         final boolean newPubPublish = configuration.isPubsubPublish();
         final String newMqttTopic = configuration.getMqttTopic();
-        final String alertsMqttTopic = configuration.getAlertsMqttTopic();
         final long newTelemetryPublishIntervalMs = configuration.getTelemetryPublishIntervalMs();
         //Start publish thread
         synchronized (publishTaskLock) {
             if (telemetryPublishFuture != null) {
                 logger.debug(TELEMETRY_PUBLISH_STOPPING);
-                cancelPublishTasks(false);
+                cancelPublishTask(false);
             }
             if (newPubPublish) {
                 logger.debug(PUBSUB_PUBLISH_STARTING);
@@ -269,10 +256,6 @@ public class NucleusEmitter extends PluginService {
             telemetryPublishFuture = ses.scheduleAtFixedRate(
                     () -> publishTelemetry(newPubPublish, !Utils.isEmpty(newMqttTopic), newMqttTopic), 0,
                     newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
-            // TODO remove
-            telemetryAlertPublishFuture = ses.scheduleAtFixedRate(
-                    () -> publishAlertTelemetry(false, !Utils.isEmpty(alertsMqttTopic), alertsMqttTopic), 0,
-                    newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
         }
 
         logger.info(STARTUP_CONFIGURATION_LOG, newPubPublish,
@@ -280,7 +263,6 @@ public class NucleusEmitter extends PluginService {
     }
 
     protected String retrieveMetricsJson(ObjectMapper jsonMapper) {
-
         String jsonString = null;
         try {
             List<Metric> metrics = Stream.of(sme.getMetrics(), kme.getMetrics())
@@ -295,18 +277,14 @@ public class NucleusEmitter extends PluginService {
 
     @Override
     public void shutdown() {
-        cancelPublishTasks(true);
+        cancelPublishTask(true);
         monitorsByMetricName.values().forEach(Monitor::stop);
     }
 
-    private void cancelPublishTasks(boolean interrupt) {
+    private void cancelPublishTask(boolean interrupt) {
         synchronized (publishTaskLock) {
             if (telemetryPublishFuture != null) {
                 telemetryPublishFuture.cancel(interrupt);
-            }
-            // TODO remove
-            if (telemetryAlertPublishFuture != null) {
-                telemetryAlertPublishFuture.cancel(interrupt);
             }
         }
     }

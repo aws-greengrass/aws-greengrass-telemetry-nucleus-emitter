@@ -18,7 +18,7 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.utils.System.CPU;
 
 @RequiredArgsConstructor
 public class CpuMetric implements Supplier<Metric> {
-    private static final String NAME = "CpuUsage";
+    public static final String NAME = "CpuUsage";
     private long[] previousTicks = new long[CentralProcessor.TickType.values().length];
     private final String namespace;
 

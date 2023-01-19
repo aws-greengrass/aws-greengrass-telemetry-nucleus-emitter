@@ -8,11 +8,16 @@ package com.aws.greengrass.telemetry.nucleus.emitter;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.util.Coerce;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.Value;
 import org.apache.commons.lang3.BooleanUtils;
 
 import java.util.Map;
 
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.ALARMS_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.ALERTS_MQTT_TOPIC_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.ALERTS_MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_INVALID_OPTION_ERROR_LOG;
@@ -37,14 +42,36 @@ public class NucleusEmitterConfiguration {
     @Builder.Default
     String alertsMqttTopic = "";
 
+    Alarm cpuAlarm;
+
+    @Getter
+    @Setter
+    @EqualsAndHashCode
+    public static class Alarms {
+        Alarm cpu;
+    }
+
+    @Getter
+    @Setter
+    @EqualsAndHashCode
+    public static class Alarm {
+        String condition;
+        double value;
+        long period;
+        String periodUnit;
+        int datapoints;
+        int evaluationPeriod;
+    }
+
     @Builder.Default
     long telemetryPublishIntervalMs = DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
 
     /**
      * Get the Nucleus Emitter configuration from the POJO map.
-     * @param pojo  POJO Topics object.
+     *
+     * @param pojo   POJO Topics object.
      * @param logger Greengrass logger.
-     * @return  the Nucleus Emitter configuration, or null if the POJO map is invalid.
+     * @return the Nucleus Emitter configuration, or null if the POJO map is invalid.
      */
     public static NucleusEmitterConfiguration fromPojo(Map<String, Object> pojo, Logger logger) {
         if (pojo.isEmpty()) {
@@ -54,6 +81,7 @@ public class NucleusEmitterConfiguration {
         boolean pubsubPublish = true;
         String mqttTopic = "";
         String alertsMqttTopic = "";
+        Alarms alarms = null;
         for (Map.Entry<String, Object> entry : pojo.entrySet()) {
             switch (entry.getKey()) {
                 case PUBSUB_PUBLISH_CONFIG_NAME:
@@ -98,6 +126,14 @@ public class NucleusEmitterConfiguration {
                         logger.error(ALERTS_MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG, entry.getValue());
                         return null;
                     }
+                case ALARMS_CONFIG_NAME:
+                    try {
+                        alarms = NucleusEmitter.jsonMapper.convertValue(entry.getValue(), Alarms.class);
+                        break;
+                    } catch (Exception e) {
+                        logger.error("Unable to map alarm configuration", e);
+                        return null;
+                    }
                 default:
                     logger.error(CONFIG_INVALID_OPTION_ERROR_LOG, entry.getKey());
                     return null;
@@ -108,6 +144,7 @@ public class NucleusEmitterConfiguration {
                 .pubsubPublish(pubsubPublish)
                 .mqttTopic(mqttTopic)
                 .alertsMqttTopic(alertsMqttTopic)
+                .cpuAlarm(alarms == null ? null : alarms.getCpu())
                 .telemetryPublishIntervalMs(telemetryPublishIntervalMs)
                 .build();
     }

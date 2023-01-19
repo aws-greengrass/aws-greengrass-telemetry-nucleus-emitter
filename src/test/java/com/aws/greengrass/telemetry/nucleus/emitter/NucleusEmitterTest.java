@@ -40,6 +40,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -62,6 +63,7 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUti
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.startKernelWithConfig;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
@@ -191,6 +193,23 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         kernel.getContext().waitForPublishQueueToClear(); //Need to wait for the update to take effect, otherwise we see transient failures
         NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
         assertEquals("", currentConfiguration.getMqttTopic());
+    }
+
+    @Test
+    void GIVEN_alarm_config_WHEN_component_started_THEN_alarm_config_is_populated() throws InterruptedException {
+        startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource("config_alarms.yaml")).toString(), kernel, rootDir);
+
+        Thread.sleep(1000); // TODO wait for something reliable
+
+        // cpu alarms exist and are populated
+        NucleusEmitterConfiguration currentConfiguration = kernel.getContext().get(NucleusEmitter.class).getCurrentConfiguration().get();
+        assertNotNull(currentConfiguration.getCpuAlarm());
+        assertEquals(">", currentConfiguration.getCpuAlarm().getCondition());
+        assertEquals(95, currentConfiguration.getCpuAlarm().getValue());
+        assertEquals(1, currentConfiguration.getCpuAlarm().getPeriod());
+        assertEquals("minutes", currentConfiguration.getCpuAlarm().getPeriodUnit());
+        assertEquals(1, currentConfiguration.getCpuAlarm().getDatapoints());
+        assertEquals(1, currentConfiguration.getCpuAlarm().getEvaluationPeriod());
     }
 
     @Test

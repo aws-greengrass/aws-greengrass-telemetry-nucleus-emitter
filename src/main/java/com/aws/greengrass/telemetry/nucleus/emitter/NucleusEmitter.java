@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -62,7 +63,7 @@ public class NucleusEmitter extends PluginService {
     private final AtomicReference<NucleusEmitterConfiguration> currentConfiguration =
             new AtomicReference<>(NucleusEmitterConfiguration.builder().build());
 
-    private static final ObjectMapper jsonMapper = SerializerFactory.getFailSafeJsonObjectMapper();
+    static final ObjectMapper jsonMapper = SerializerFactory.getFailSafeJsonObjectMapper();
 
     private final Map<String, Monitor> monitorsByMetricName = new HashMap<>();
 
@@ -117,9 +118,10 @@ public class NucleusEmitter extends PluginService {
         boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
                 != newConfiguration.getTelemetryPublishIntervalMs();
         // TODO if alarm config changes, restart alarm
+        boolean alarmsChanged = !Objects.equals(configuration.getCpuAlarm(), newConfiguration.getCpuAlarm());
 
         if (!pubSubPublishChanged && !mqttTopicChanged
-                && !telemetryPublishIntervalMsChanged && !alarmsMqttTopicChanged) {
+                && !telemetryPublishIntervalMsChanged && !alarmsMqttTopicChanged && !alarmsChanged) {
             return;
         }
 
@@ -144,7 +146,7 @@ public class NucleusEmitter extends PluginService {
         // TODO configurable
         // TODO add other metrics
         // TODO move metric names to constants
-        monitorsByMetricName.computeIfAbsent("CpuUsage", k ->
+        monitorsByMetricName.computeIfAbsent(CpuMetric.NAME, k ->
                 Monitor.builder()
                         .ses(ses)
                         .datapoint(new CpuMetric(SystemMetricsEmitter.NAMESPACE))

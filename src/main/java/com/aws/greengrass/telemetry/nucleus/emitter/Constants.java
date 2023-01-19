@@ -9,6 +9,8 @@ public class Constants {
 
     public static final String AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER = "aws.greengrass.telemetry.NucleusEmitter";
 
+
+    public static final String ALARMS_CONFIG_NAME = "alarms";
     public static final String PUBSUB_PUBLISH_CONFIG_NAME = "pubSubPublish";
     public static final String MQTT_TOPIC_CONFIG_NAME = "mqttTopic";
     public static final String ALERTS_MQTT_TOPIC_CONFIG_NAME = "alertsMqttTopic";

@@ -45,9 +45,7 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_UPDATE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
-import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.INVALID_PUBLISH_THRESHOLD_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.JSON_PARSE_ERROR_LOG;
-import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MIN_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_PUBLISH_STARTING;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_STARTING;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.STARTUP_CONFIGURATION_LOG;
@@ -127,21 +125,6 @@ public class NucleusEmitter extends PluginService {
             return;
         }
 
-        //If the new requested publish interval is below the minimum, use the minimum
-        if (newConfiguration.getTelemetryPublishIntervalMs() < MIN_TELEMETRY_PUBLISH_INTERVAL_MS) {
-            logger.warn(INVALID_PUBLISH_THRESHOLD_LOG, MIN_TELEMETRY_PUBLISH_INTERVAL_MS,
-                    MIN_TELEMETRY_PUBLISH_INTERVAL_MS);
-            newConfiguration = NucleusEmitterConfiguration.builder()
-                    .pubsubPublish(newConfiguration.isPubsubPublish())
-                    .mqttTopic(newConfiguration.getMqttTopic())
-                    .alertsMqttTopic(newConfiguration.getAlertsMqttTopic())
-                    .cpuAlarm(newConfiguration.getCpuAlarm())
-                    .memoryAlarm(newConfiguration.getMemoryAlarm())
-                    .diskAlarm(newConfiguration.getDiskAlarm())
-                    .telemetryPublishIntervalMs(MIN_TELEMETRY_PUBLISH_INTERVAL_MS)
-                    .build();
-        }
-
         if (cpuAlarmChanged) {
             restartMonitorWithConfig(
                     CpuMetric.NAME,
@@ -160,7 +143,6 @@ public class NucleusEmitter extends PluginService {
                     new DiskMetric(SystemMetricsEmitter.NAMESPACE),
                     newConfiguration.getDiskAlarm());
         }
-
 
         currentConfiguration.set(newConfiguration);
         // TODO don't do this if only alarms changed

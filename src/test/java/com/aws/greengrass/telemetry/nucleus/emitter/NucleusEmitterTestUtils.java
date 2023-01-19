@@ -49,6 +49,9 @@ public final class NucleusEmitterTestUtils {
     }
 
     public static void startKernelWithConfig(String configFile, Kernel kernel, Path rootDir) throws InterruptedException {
+        // Set this property for kernel to scan its own classpath to find plugins
+        System.setProperty("aws.greengrass.scanSelfClasspath", "true");
+
         CountDownLatch nucleusTelemetryEmitterRunning = new CountDownLatch(1);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i", configFile);
         kernel.getContext().addGlobalStateChangeListener((GreengrassService service, State was, State newState) -> {

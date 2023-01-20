@@ -17,6 +17,9 @@ import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.mqttclient.PublishRequest;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils;
+import com.aws.greengrass.telemetry.nucleus.emitter.metrics.CpuMetric;
+import com.aws.greengrass.telemetry.nucleus.emitter.metrics.DiskMetric;
+import com.aws.greengrass.telemetry.nucleus.emitter.metrics.MemoryMetric;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.NoOpPathOwnershipHandler;
@@ -36,6 +39,7 @@ import org.slf4j.event.Level;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -426,23 +430,29 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
 
         startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource("config_alarming.yaml")).toString(), kernel, rootDir);
 
-        // 3 publishes, one for each type of alarm
-        CountDownLatch onMqttPublish = new CountDownLatch(3);
+        List<String> metricsToFind = new ArrayList<>();
+        metricsToFind.add(CpuMetric.NAME);
+        metricsToFind.add(MemoryMetric.NAME);
+        metricsToFind.add(DiskMetric.NAME);
+
+        CountDownLatch onMqttPublish = new CountDownLatch(metricsToFind.size());
         doAnswer(invocation -> {
-            // TODO do better
             PublishRequest req = invocation.getArgument(0);
             if (!Objects.equals(TEST_ALERTS_MQTT_TOPIC, req.getTopic())) {
                 return CompletableFuture.completedFuture(null);
             }
 
-            // TODO make better assertions on content
-            assertNotNull(req.getPayload());
+            List<Metric> publishedMetrics = new ObjectMapper()
+                    .readValue(req.getPayload(), new TypeReference<List<Metric>>(){});
+            metricsToFind.remove(publishedMetrics.get(0).getName());
 
             onMqttPublish.countDown();
             return CompletableFuture.completedFuture(null);
         }).when(mockMqttClient).publish(any());
 
+
         assertTrue(onMqttPublish.await(5, TimeUnit.SECONDS));
+        assertTrue(metricsToFind.isEmpty());
     }
 
     private static boolean isJSONValid(String json) {

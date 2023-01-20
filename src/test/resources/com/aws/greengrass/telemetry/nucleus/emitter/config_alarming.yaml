@@ -12,21 +12,21 @@ services:
       telemetryPublishIntervalMs: "60000"
       alarms:
         cpu:
-          condition: ">"
+          condition: ">="
           value: 0
           period: 1
           periodUnit: MINUTES
           datapoints: 1
           evaluationPeriod: 1
         memory:
-          condition: ">"
+          condition: ">="
           value: 0
           period: 1
           periodUnit: MINUTES
           datapoints: 1
           evaluationPeriod: 1
         disk:
-          condition: ">"
+          condition: ">="
           value: 0
           period: 1
           periodUnit: MINUTES

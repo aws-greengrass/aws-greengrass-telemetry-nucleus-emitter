@@ -7,6 +7,7 @@ package com.aws.greengrass.telemetry.nucleus.emitter;
 
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.util.Coerce;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -14,6 +15,7 @@ import lombok.Setter;
 import lombok.Value;
 import org.apache.commons.lang3.BooleanUtils;
 
+import java.util.Arrays;
 import java.util.Map;
 
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.ALARMS_CONFIG_NAME;
@@ -153,11 +155,47 @@ public class NucleusEmitterConfiguration {
     @Setter
     @EqualsAndHashCode
     public static class Alarm {
-        String condition;
+        Condition condition;
         double value;
         long period;
-        String periodUnit;
+        PeriodUnit periodUnit;
         int datapoints;
         int evaluationPeriod;
+
+        public enum Condition {
+            GT_EQ(">="),
+            LT_EQ("<="),
+            GT(">"),
+            LT("<");
+
+            @Getter
+            private final String expr;
+
+            Condition(String expr) {
+                this.expr = expr;
+            }
+
+            @JsonCreator
+            public static Condition fromString(String key) {
+                return Arrays.stream(Condition.values())
+                        .filter(c -> c.getExpr().equals(key))
+                        .findFirst()
+                        .orElseThrow(IllegalArgumentException::new);
+            }
+        }
+
+        public enum PeriodUnit {
+            MINUTES,
+            HOURS,
+            DAYS;
+
+            @JsonCreator
+            public static PeriodUnit fromString(String key) {
+                if (key == null) {
+                    throw new IllegalArgumentException();
+                }
+                return PeriodUnit.valueOf(key.toUpperCase());
+            }
+        }
     }
 }

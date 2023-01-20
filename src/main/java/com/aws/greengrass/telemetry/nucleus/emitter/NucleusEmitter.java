@@ -11,6 +11,8 @@ import com.aws.greengrass.dependency.ImplementsService;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.telemetry.impl.Metric;
+import com.aws.greengrass.telemetry.nucleus.emitter.alarms.AlarmPublisher;
+import com.aws.greengrass.telemetry.nucleus.emitter.alarms.AlarmTask;
 import com.aws.greengrass.telemetry.nucleus.emitter.alarms.Monitor;
 import com.aws.greengrass.telemetry.nucleus.emitter.alarms.Threshold;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.CpuMetric;
@@ -29,15 +31,13 @@ import lombok.Getter;
 
 import javax.inject.Inject;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -58,14 +58,13 @@ public class NucleusEmitter extends PluginService {
     private final ScheduledExecutorService ses;
     private final Object publishTaskLock = new Object();
     private ScheduledFuture<?> telemetryPublishFuture;
+    private final AlarmTask alarmTask;
 
     @Getter(AccessLevel.PACKAGE) // Needed for unit tests.
     private final AtomicReference<NucleusEmitterConfiguration> currentConfiguration =
             new AtomicReference<>(NucleusEmitterConfiguration.builder().build());
 
     static final ObjectMapper jsonMapper = SerializerFactory.getFailSafeJsonObjectMapper();
-
-    private final Map<String, Monitor> monitorsByMetricName = new HashMap<>();
 
     private final SystemMetricsEmitter sme;
     private final KernelMetricsEmitter kme;
@@ -98,6 +97,12 @@ public class NucleusEmitter extends PluginService {
         this.pubSubPublisher = pubSubPublisher;
         this.mqttPublisher = mqttPublisher;
         this.ses = ses;
+        this.alarmTask = new AlarmTask(ses, AlarmPublisher.builder()
+                .mapper(jsonMapper)
+                .config(currentConfiguration)
+                .mqttPublisher(mqttPublisher)
+                .pubSubPublisher(pubSubPublisher)
+                .build());
     }
 
     private void handleConfiguration(Topics configurationTopics) {
@@ -108,79 +113,21 @@ public class NucleusEmitter extends PluginService {
             return;
         }
         NucleusEmitterConfiguration configuration = currentConfiguration.get();
+        currentConfiguration.set(newConfiguration);
 
-        boolean pubSubPublishChanged = configuration.isPubsubPublish() != newConfiguration.isPubsubPublish();
-        boolean mqttTopicChanged = !configuration.getMqttTopic().equals(newConfiguration.getMqttTopic());
-        // TODO consistent naming
-        boolean alarmsMqttTopicChanged = !configuration.getAlertsMqttTopic().equals(newConfiguration.getAlertsMqttTopic());
-        boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
-                != newConfiguration.getTelemetryPublishIntervalMs();
         boolean cpuAlarmChanged = !Objects.equals(configuration.getCpuAlarm(), newConfiguration.getCpuAlarm());
         boolean memoryAlarmChanged = !Objects.equals(configuration.getMemoryAlarm(), newConfiguration.getMemoryAlarm());
         boolean diskAlarmChanged = !Objects.equals(configuration.getDiskAlarm(), newConfiguration.getDiskAlarm());
-
-        if (!pubSubPublishChanged && !mqttTopicChanged
-                && !telemetryPublishIntervalMsChanged && !alarmsMqttTopicChanged
-                && !cpuAlarmChanged && !memoryAlarmChanged && !diskAlarmChanged) {
-            return;
+        if (cpuAlarmChanged || memoryAlarmChanged || diskAlarmChanged) {
+            registerMonitors();
         }
 
-        if (cpuAlarmChanged) {
-            restartMonitorWithConfig(
-                    CpuMetric.NAME,
-                    new CpuMetric(SystemMetricsEmitter.NAMESPACE),
-                    newConfiguration.getCpuAlarm());
-        }
-        if (memoryAlarmChanged) {
-            restartMonitorWithConfig(
-                    MemoryMetric.NAME,
-                    new MemoryMetric(SystemMetricsEmitter.NAMESPACE),
-                    newConfiguration.getMemoryAlarm());
-        }
-        if (diskAlarmChanged) {
-            restartMonitorWithConfig(
-                    DiskMetric.NAME,
-                    new DiskMetric(SystemMetricsEmitter.NAMESPACE),
-                    newConfiguration.getDiskAlarm());
-        }
-
-        currentConfiguration.set(newConfiguration);
-        // TODO don't do this if only alarms changed
-        scheduleTelemetryPublish();
-    }
-
-    private void restartMonitorWithConfig(String name, Supplier<Metric> datapoint, NucleusEmitterConfiguration.Alarm conf) {
-        monitorsByMetricName.compute(name, (n, m) -> {
-            if (m != null) {
-                m.stop();
-            }
-            return Monitor.builder()
-                    .ses(ses)
-                    .datapoint(datapoint)
-                    .callback(this::handleMonitorState)
-                    // TODO validation
-                    .threshold(Threshold.builder()
-                            .condition(Threshold.Condition.fromExpr(conf.getCondition()).get())
-                            .value(conf.getValue())
-                            .period(conf.getPeriod())
-                            .periodTimeUnit(TimeUnit.valueOf(conf.getPeriodUnit()))
-                            .datapoints(conf.getDatapoints())
-                            .evaluationPeriods(conf.getEvaluationPeriod())
-                            .build())
-                    .build();
-        }).start();
-    }
-
-    private void handleMonitorState(Monitor.State state, List<Metric> datapoints) {
-        if (state == Monitor.State.ALARM) {
-            // TODO check if this needs to be async
-            publishAlarm(
-                    false,
-                    !Utils.isEmpty(currentConfiguration.get().getAlertsMqttTopic()),
-                    currentConfiguration.get().getAlertsMqttTopic(),
-                    // TODO revise message to include all metrics, or a summary?
-                    datapoints.get(0)
-            );
+        boolean pubSubPublishChanged = configuration.isPubsubPublish() != newConfiguration.isPubsubPublish();
+        boolean mqttTopicChanged = !configuration.getMqttTopic().equals(newConfiguration.getMqttTopic());
+        boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
+                != newConfiguration.getTelemetryPublishIntervalMs();
+        if (pubSubPublishChanged || mqttTopicChanged || telemetryPublishIntervalMsChanged) {
+            scheduleTelemetryPublish();
         }
     }
 
@@ -189,27 +136,12 @@ public class NucleusEmitter extends PluginService {
         reportState(State.RUNNING);
         config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(subscribeToConfigChanges);
         scheduleTelemetryPublish();
-        // TODO if we're in alarm state, we get duplicate alarms from this and from config change
-        monitorsByMetricName.values().forEach(Monitor::start);
+        registerMonitors();
+        alarmTask.start();
     }
 
     private void publishTelemetry(boolean pubSubPublish, boolean mqttPublish, String mqttTopic) {
         String jsonString = retrieveMetricsJson(jsonMapper);
-        if (pubSubPublish) {
-            this.pubSubPublisher.publishMessage(jsonString, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
-        }
-        if (mqttPublish) {
-            this.mqttPublisher.publishMessage(jsonString, mqttTopic);
-        }
-    }
-
-    private void publishAlarm(boolean pubSubPublish, boolean mqttPublish, String mqttTopic, Metric telemetryMetric){
-        String jsonString;
-        try {
-            jsonString = jsonMapper.writeValueAsString(telemetryMetric);
-        } catch (JsonProcessingException e) {
-           return;
-        }
         if (pubSubPublish) {
             this.pubSubPublisher.publishMessage(jsonString, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
         }
@@ -261,7 +193,7 @@ public class NucleusEmitter extends PluginService {
     @Override
     public void shutdown() {
         cancelPublishTask(true);
-        monitorsByMetricName.values().forEach(Monitor::stop);
+        alarmTask.stop();
     }
 
     private void cancelPublishTask(boolean interrupt) {
@@ -269,6 +201,50 @@ public class NucleusEmitter extends PluginService {
             if (telemetryPublishFuture != null) {
                 telemetryPublishFuture.cancel(interrupt);
             }
+        }
+    }
+
+    private void registerMonitors() {
+        Function<NucleusEmitterConfiguration.Alarm, Threshold> thresholdFromConfig = conf -> {
+            if (conf == null) {
+                return null;
+            }
+            return Threshold.builder()
+                    .condition(Threshold.Condition.fromExpr(conf.getCondition().getExpr()).get())
+                    .value(conf.getValue())
+                    .period(conf.getPeriod())
+                    .periodTimeUnit(TimeUnit.valueOf(conf.getPeriodUnit().name()))
+                    .datapoints(conf.getDatapoints())
+                    .evaluationPeriods(conf.getEvaluationPeriod())
+                    .build();
+        };
+
+
+        if (currentConfiguration.get().getCpuAlarm() == null) {
+            alarmTask.deregister(CpuMetric.NAME);
+        } else {
+            alarmTask.register(CpuMetric.NAME, Monitor.builder()
+                    .datapoint(new CpuMetric(SystemMetricsEmitter.NAMESPACE))
+                    .threshold(() -> thresholdFromConfig.apply(currentConfiguration.get().getCpuAlarm()))
+                    .build());
+        }
+
+        if (currentConfiguration.get().getMemoryAlarm() == null) {
+            alarmTask.deregister(MemoryMetric.NAME);
+        } else {
+            alarmTask.register(MemoryMetric.NAME, Monitor.builder()
+                    .datapoint(new MemoryMetric(SystemMetricsEmitter.NAMESPACE))
+                    .threshold(() -> thresholdFromConfig.apply(currentConfiguration.get().getMemoryAlarm()))
+                    .build());
+        }
+
+        if (currentConfiguration.get().getDiskAlarm() == null) {
+            alarmTask.deregister(DiskMetric.NAME);
+        } else {
+            alarmTask.register(DiskMetric.NAME, Monitor.builder()
+                    .datapoint(new DiskMetric(SystemMetricsEmitter.NAMESPACE))
+                    .threshold(() -> thresholdFromConfig.apply(currentConfiguration.get().getDiskAlarm()))
+                    .build());
         }
     }
 }

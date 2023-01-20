@@ -172,13 +172,13 @@ public class NucleusEmitter extends PluginService {
     }
 
     private void handleMonitorState(Monitor.State state, List<Metric> datapoints) {
-        // TODO revise message to include all metrics, or a summary?
         if (state == Monitor.State.ALARM) {
             // TODO check if this needs to be async
-            publishTelemetryMessage(
+            publishAlarm(
                     false,
-                    !Utils.isEmpty(currentConfiguration.get().getAlertsMqttTopic()) ,
+                    !Utils.isEmpty(currentConfiguration.get().getAlertsMqttTopic()),
                     currentConfiguration.get().getAlertsMqttTopic(),
+                    // TODO revise message to include all metrics, or a summary?
                     datapoints.get(0)
             );
         }
@@ -189,6 +189,7 @@ public class NucleusEmitter extends PluginService {
         reportState(State.RUNNING);
         config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(subscribeToConfigChanges);
         scheduleTelemetryPublish();
+        // TODO if we're in alarm state, we get duplicate alarms from this and from config change
         monitorsByMetricName.values().forEach(Monitor::start);
     }
 
@@ -202,7 +203,7 @@ public class NucleusEmitter extends PluginService {
         }
     }
 
-    private void publishTelemetryMessage(boolean pubSubPublish, boolean mqttPublish, String mqttTopic, Metric telemetryMetric){
+    private void publishAlarm(boolean pubSubPublish, boolean mqttPublish, String mqttTopic, Metric telemetryMetric){
         String jsonString;
         try {
             jsonString = jsonMapper.writeValueAsString(telemetryMetric);

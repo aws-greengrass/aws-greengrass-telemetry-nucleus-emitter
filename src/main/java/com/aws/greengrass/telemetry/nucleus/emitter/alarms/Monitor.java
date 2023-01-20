@@ -93,7 +93,9 @@ public class Monitor {
             case GREATER_OR_EQ:
                 return datapoint >= threshold.getValue();
             default:
-                return false;
+                // unrecognized condition,
+                // treat as breaching
+                return true;
         }
     }
 

@@ -13,6 +13,8 @@ import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.logging.impl.config.LogConfig;
+import com.aws.greengrass.mqttclient.MqttClient;
+import com.aws.greengrass.mqttclient.PublishRequest;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
@@ -27,6 +29,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
@@ -34,6 +38,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -61,13 +66,19 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUti
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_THRESHOLD_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.NO_CONFIG_OPTIONS_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.TEST_ALERTS_MQTT_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.TEST_MQTT_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.format;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.startKernelWithConfig;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(GGExtension.class)
 class NucleusEmitterIntegrationTest extends BaseITCase {
@@ -405,6 +416,33 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
             assertFalse(mqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log detected.");
             checkForPubSubMessages(130000);
         }
+    }
+
+    @Test
+    void GIVEN_alarms_configured_to_always_trigger_THEN_alarms_triggered() throws Exception {
+        MqttClient mockMqttClient = mock(MqttClient.class);
+        when(mockMqttClient.connected()).thenReturn(true);
+        kernel.getContext().put(MqttClient.class, mockMqttClient);
+
+        startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource("config_alarming.yaml")).toString(), kernel, rootDir);
+
+        // 3 publishes, one for each type of alarm
+        CountDownLatch onMqttPublish = new CountDownLatch(3);
+        doAnswer(invocation -> {
+            // TODO do better
+            PublishRequest req = invocation.getArgument(0);
+            if (!Objects.equals(TEST_ALERTS_MQTT_TOPIC, req.getTopic())) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            // TODO make better assertions on content
+            assertNotNull(req.getPayload());
+
+            onMqttPublish.countDown();
+            return CompletableFuture.completedFuture(null);
+        }).when(mockMqttClient).publish(any());
+
+        assertTrue(onMqttPublish.await(5, TimeUnit.SECONDS));
     }
 
     private static boolean isJSONValid(String json) {

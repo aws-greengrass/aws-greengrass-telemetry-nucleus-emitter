@@ -34,7 +34,6 @@
         <mockito.version>3.2.4</mockito.version>
         <lombok.version>1.18.10</lombok.version>
         <spotbugs.version>4.0.1</spotbugs.version>
-        <jackson.version>2.10.1</jackson.version>
         <hamcrest.core.version>2.2</hamcrest.core.version>
         <surefire.version>3.0.0-M5</surefire.version>
         <aws.maven.version>1.4.2</aws.maven.version>
@@ -487,6 +486,9 @@
                             <transformers>
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <GG-Plugin-Class>com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitter</GG-Plugin-Class>
+                                    </manifestEntries>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer">

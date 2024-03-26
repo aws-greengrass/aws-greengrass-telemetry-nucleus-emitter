@@ -15,10 +15,13 @@ import java.util.Map;
 
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_INVALID_OPTION_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_TOPIC_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_TOPIC_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG;
 
@@ -31,6 +34,9 @@ public class NucleusEmitterConfiguration {
     @Builder.Default
     boolean pubsubPublish = true;
     @Builder.Default
+    String pubsubTopic = DEFAULT_TELEMETRY_PUBSUB_TOPIC;
+
+    @Builder.Default
     String mqttTopic = "";
     @Builder.Default
     long telemetryPublishIntervalMs = DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
@@ -39,15 +45,14 @@ public class NucleusEmitterConfiguration {
      * Get the Nucleus Emitter configuration from the POJO map.
      * @param pojo  POJO Topics object.
      * @param logger Greengrass logger.
-     * @return  the Nucleus Emitter configuration.
+     * @return the Nucleus Emitter configuration.
      */
     public static NucleusEmitterConfiguration fromPojo(Map<String, Object> pojo, Logger logger) {
         if (pojo.isEmpty()) {
             return null;
         }
-        long telemetryPublishIntervalMs = DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
-        boolean pubsubPublish = true;
-        String mqttTopic = "";
+        NucleusEmitterConfigurationBuilder config = NucleusEmitterConfiguration.builder();
+
         for (Map.Entry<String, Object> entry : pojo.entrySet()) {
             switch (entry.getKey()) {
                 case PUBSUB_PUBLISH_CONFIG_NAME:
@@ -58,7 +63,7 @@ public class NucleusEmitterConfiguration {
                             logger.error(PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG, entry.getValue());
                             return null;
                         }
-                        pubsubPublish = parsedBoolean;
+                        config.pubsubPublish(parsedBoolean);
                         break;
                     } else {
                         logger.error(PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG, entry.getValue());
@@ -66,11 +71,12 @@ public class NucleusEmitterConfiguration {
                     }
                 case TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME:
                     if (entry.getValue() instanceof Number || entry.getValue() instanceof String) {
-                        telemetryPublishIntervalMs = Coerce.toLong(entry.getValue());
+                        long telemetryPublishIntervalMs = Coerce.toLong(entry.getValue());
                         if (telemetryPublishIntervalMs == 0L) { //If value is 0 or non-numeric String
                             logger.error(TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG, entry.getValue());
                             return null;
                         }
+                        config.telemetryPublishIntervalMs(telemetryPublishIntervalMs);
                         break;
                     } else { //If not a Number or String
                         logger.error(TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG, entry.getValue());
@@ -78,10 +84,18 @@ public class NucleusEmitterConfiguration {
                     }
                 case MQTT_TOPIC_CONFIG_NAME:
                     if (entry.getValue() instanceof String) {
-                        mqttTopic = Coerce.toString(entry.getValue());
+                        config.mqttTopic(Coerce.toString(entry.getValue()));
                         break;
                     } else {
                         logger.error(MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG, entry.getValue());
+                        return null;
+                    }
+                case PUBSUB_TOPIC_CONFIG_NAME:
+                    if (entry.getValue() instanceof String) {
+                        config.pubsubTopic(Coerce.toString(entry.getValue()));
+                        break;
+                    } else {
+                        logger.error(PUBSUB_TOPIC_CONFIG_PARSE_ERROR_LOG, entry.getValue());
                         return null;
                     }
                 default:
@@ -90,10 +104,6 @@ public class NucleusEmitterConfiguration {
             }
         }
 
-        return NucleusEmitterConfiguration.builder()
-                .pubsubPublish(pubsubPublish)
-                .mqttTopic(mqttTopic)
-                .telemetryPublishIntervalMs(telemetryPublishIntervalMs)
-                .build();
+        return config.build();
     }
 }

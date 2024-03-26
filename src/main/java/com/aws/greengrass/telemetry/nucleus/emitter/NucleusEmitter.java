@@ -35,7 +35,6 @@ import javax.inject.Inject;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_UPDATE_ERROR_LOG;
-import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.INVALID_PUBLISH_THRESHOLD_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.JSON_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MIN_TELEMETRY_PUBLISH_INTERVAL_MS;
@@ -132,10 +131,10 @@ public class NucleusEmitter extends PluginService {
         scheduleTelemetryPublish();
     }
 
-    private void publishTelemetry(boolean pubSubPublish, boolean mqttPublish, String mqttTopic) {
+    private void publishTelemetry(boolean pubSubPublish, String pubSubTopic, boolean mqttPublish, String mqttTopic) {
         String jsonString = retrieveMetricsJson(jsonMapper);
         if (pubSubPublish) {
-            this.pubSubPublisher.publishMessage(jsonString, DEFAULT_TELEMETRY_PUBSUB_TOPIC);
+            this.pubSubPublisher.publishMessage(jsonString, pubSubTopic);
         }
         if (mqttPublish) {
             this.mqttPublisher.publishMessage(jsonString, mqttTopic);
@@ -162,12 +161,14 @@ public class NucleusEmitter extends PluginService {
             }
             logger.debug(TELEMETRY_PUBLISH_SCHEDULED);
             telemetryPublishFuture = ses.scheduleAtFixedRate(
-                    () -> publishTelemetry(newPubPublish,!Utils.isEmpty(newMqttTopic), newMqttTopic), 0,
+                    () -> publishTelemetry(newPubPublish, configuration.getPubsubTopic(),
+                            !Utils.isEmpty(newMqttTopic), newMqttTopic),
+                    0,
                     newTelemetryPublishIntervalMs, TimeUnit.MILLISECONDS);
         }
 
         logger.info(STARTUP_CONFIGURATION_LOG, newPubPublish,
-                DEFAULT_TELEMETRY_PUBSUB_TOPIC, newMqttTopic, newTelemetryPublishIntervalMs);
+                configuration.getPubsubTopic(), newMqttTopic, newTelemetryPublishIntervalMs);
     }
 
     protected String retrieveMetricsJson(ObjectMapper jsonMapper) {

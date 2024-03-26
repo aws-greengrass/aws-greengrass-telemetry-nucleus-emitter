@@ -23,6 +23,7 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_TOPIC_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterConfiguration.fromPojo;
@@ -56,6 +57,14 @@ public class NucleusEmitterConfigurationTest extends GGServiceTestUtil {
         pojo.put(TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME, "60000");
         NucleusEmitterConfiguration generatedConfiguration = fromPojo(pojo, logger);
         assertEquals(defaultConfiguration, generatedConfiguration);
+    }
+
+    @Test
+    void GIVEN_valid_nondefault_string_config_options_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(PUBSUB_TOPIC_CONFIG_NAME,"pubsub");
+        NucleusEmitterConfiguration generatedConfiguration = fromPojo(pojo, logger);
+        assertEquals("pubsub", generatedConfiguration.getPubsubTopic());
     }
 
     @Test

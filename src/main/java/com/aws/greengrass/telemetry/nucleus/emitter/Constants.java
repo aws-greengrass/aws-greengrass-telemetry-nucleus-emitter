@@ -10,6 +10,7 @@ public class Constants {
     public static final String AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER = "aws.greengrass.telemetry.NucleusEmitter";
 
     public static final String PUBSUB_PUBLISH_CONFIG_NAME = "pubSubPublish";
+    public static final String PUBSUB_TOPIC_CONFIG_NAME = "pubSubTopic";
     public static final String MQTT_TOPIC_CONFIG_NAME = "mqttTopic";
     public static final String TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME = "telemetryPublishIntervalMs";
     public static final String DEFAULT_TELEMETRY_PUBSUB_TOPIC = "$local/greengrass/telemetry";
@@ -20,9 +21,9 @@ public class Constants {
     public static final long MIN_TELEMETRY_PUBLISH_INTERVAL_MS = 500;
 
     public static final String PUBSUB_PUBLISH_SUCCESS_LOG = "Published local pub/sub message on topic "
-            + "'$local/greengrass/telemetry'";
+            + "'{}'";
     public static final String PUBSUB_PUBLISH_FAILURE_LOG = "Failed to publish local pub/sub message on topic "
-                    + "'$local/greengrass/telemetry'";
+                    + "'{}'";
     public static final String TELEMETRY_PUBLISH_SCHEDULED = "Scheduling telemetry publish";
     public static final String TELEMETRY_PUBLISH_STOPPING = "Stopping telemetry publish";
     public static final String PUBSUB_PUBLISH_STARTING = "Starting local pub/sub publishing";
@@ -40,6 +41,9 @@ public class Constants {
             + " configuration.";
     public static final String PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG = "Could not parse the pubSubPublish config option"
             + " {}. Please make sure this is set to a valid boolean value";
+
+    public static final String PUBSUB_TOPIC_CONFIG_PARSE_ERROR_LOG = "Could not parse the pubSubTopic config option {}."
+            + " Please make sure this is set to a valid topic string value";
     public static final String MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG = "Could not parse the mqttTopic config option {}."
             + " Please make sure this is set to a valid topic string value";
     public static final String TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG = "Could not parse the "

@@ -36,9 +36,9 @@ public class PubSubPublisher implements TelemetryPublisher {
         try {
             this.pubSubIPCEventStreamAgent.publish(topic, message.getBytes(StandardCharsets.UTF_8),
                     AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER);
-            logger.trace(PUBSUB_PUBLISH_SUCCESS_LOG);
+            logger.trace(PUBSUB_PUBLISH_SUCCESS_LOG, topic);
         } catch (InvalidArgumentsError e) {
-            logger.error(PUBSUB_PUBLISH_FAILURE_LOG, e);
+            logger.error(PUBSUB_PUBLISH_FAILURE_LOG, topic, e);
         }
     }
 }

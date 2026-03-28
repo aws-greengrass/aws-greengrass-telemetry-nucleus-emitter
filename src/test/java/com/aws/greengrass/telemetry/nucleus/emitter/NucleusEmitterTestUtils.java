@@ -47,6 +47,11 @@ public final class NucleusEmitterTestUtils {
     public static final String INVALID_OUTPUT_MODE_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_invalid_outputMode.yaml";
     public static final String INVALID_OUTPUT_DIRECTORY_NUCLEUS_EMITTER_KERNEL_CONFIG =
             "config_invalid_outputDirectory.yaml";
+    public static final String DETAILED_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_detailed.yaml";
+    public static final String DETAILED_WITH_MQTT_NUCLEUS_EMITTER_KERNEL_CONFIG =
+            "config_detailed_with_mqtt.yaml";
+    public static final String OUTPUT_MODE_BOTH_NUCLEUS_EMITTER_KERNEL_CONFIG =
+            "config_output_mode_both.yaml";
 
 
     public static String readJsonFromFile(String filename) throws IOException, URISyntaxException {
@@ -54,7 +59,8 @@ public final class NucleusEmitterTestUtils {
         return new String(Files.readAllBytes(file.toPath()));
     }
 
-    public static void startKernelWithConfig(String configFile, Kernel kernel, Path rootDir)
+    public static void startKernelWithConfig(
+            String configFile, Kernel kernel, Path rootDir)
             throws InterruptedException {
         CountDownLatch nucleusTelemetryEmitterRunning = new CountDownLatch(1);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i", configFile);

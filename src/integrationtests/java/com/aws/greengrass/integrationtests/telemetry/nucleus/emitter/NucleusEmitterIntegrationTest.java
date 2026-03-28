@@ -42,7 +42,9 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.AWS_GREENGR
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_UPDATE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.EXCLUDE_INTERFACES_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.INVALID_PUBLISH_THRESHOLD_LOG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.METRICS_LEVEL_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MIN_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_PUBLISH_STARTING;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_NAME;
@@ -56,6 +58,8 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_P
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.ALL_NEW_FIELDS_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.BASIC_NEW_FIELDS_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.DETAILED_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.DETAILED_WITH_MQTT_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_METRICS_LEVEL_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_MQTT_TOPIC_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_OUTPUT_DIRECTORY_NUCLEUS_EMITTER_KERNEL_CONFIG;
@@ -64,6 +68,7 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUti
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_TELEMETRY_PUBLISH_INTERVALMS_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_THRESHOLD_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.NO_CONFIG_OPTIONS_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.OUTPUT_MODE_BOTH_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.TEST_MQTT_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.format;
@@ -540,8 +545,160 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
         }
     }
 
+    @Test
+    void GIVEN_detailed_metrics_config_WHEN_component_started_THEN_disk_metrics_collected() throws Exception {
+        CountDownLatch pubsubLog = new CountDownLatch(1);
+        CountDownLatch diskMetricLatch = new CountDownLatch(1);
+        try (AutoCloseable l = TestUtils.createCloseableLogListener(m -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr != null && stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(
+                    DETAILED_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+
+            Consumer<PublishEvent> consumer = event -> {
+                String payload = new String(event.getPayload(), StandardCharsets.UTF_8);
+                if (payload.contains("DiskUsagePercent")) {
+                    diskMetricLatch.countDown();
+                }
+            };
+            PubSubIPCEventStreamAgent agent = kernel.getContext()
+                    .get(PubSubIPCEventStreamAgent.class);
+            agent.subscribe(DEFAULT_TELEMETRY_PUBSUB_TOPIC, consumer,
+                    AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER);
+            assertTrue(diskMetricLatch.await(130000, TimeUnit.MILLISECONDS),
+                    "PubSub message contains DiskUsagePercent.");
+        }
+    }
+
+    @Test
+    void GIVEN_detailed_metrics_with_mqtt_WHEN_component_started_THEN_both_publish_paths() throws Exception {
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        final CountDownLatch mqttLog = new CountDownLatch(1);
+        final CountDownLatch configLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+            if (stdoutStr.contains(MQTT_PUBLISH_STARTING)) {
+                mqttLog.countDown();
+            }
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG, "true",
+                    REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC, TEST_MQTT_TOPIC,
+                    Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(
+                    DETAILED_WITH_MQTT_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Config log detected.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+            assertTrue(mqttLog.await(30, TimeUnit.SECONDS), "MQTT publish log detected.");
+        }
+    }
+
+    @Test
+    void GIVEN_output_mode_both_WHEN_component_started_THEN_it_works() throws Exception {
+        final CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG, "true",
+                    REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC, "",
+                    Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(
+                    OUTPUT_MODE_BOTH_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Config log detected.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+        }
+    }
+
+    @Test
+    void GIVEN_default_config_WHEN_metricsLevel_changed_to_detailed_THEN_sme_recreated() throws Exception {
+        final CountDownLatch startupLog = new CountDownLatch(1);
+        final CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch diskMetricLatch = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                startupLog.countDown();
+            }
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG,
+                    "true", REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC,
+                    "",
+                    Long.toString(
+                            DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(
+                    NucleusEmitterTestUtils.class.getResource(
+                            DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG))
+                    .toString(), kernel, rootDir);
+            assertTrue(startupLog.await(30, TimeUnit.SECONDS),
+                    "Component started.");
+
+            Consumer<PublishEvent> consumer = event -> {
+                String payload = new String(
+                        event.getPayload(), StandardCharsets.UTF_8);
+                if (payload.contains("DiskUsagePercent")) {
+                    diskMetricLatch.countDown();
+                }
+            };
+            PubSubIPCEventStreamAgent agent = kernel.getContext()
+                    .get(PubSubIPCEventStreamAgent.class);
+            agent.subscribe(DEFAULT_TELEMETRY_PUBSUB_TOPIC, consumer,
+                    AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER);
+
+            getConfigTopic(METRICS_LEVEL_CONFIG_NAME)
+                    .withValue("detailed");
+            assertTrue(configLog.await(30, TimeUnit.SECONDS),
+                    "Config log after metricsLevel change.");
+            assertTrue(
+                    diskMetricLatch.await(130000, TimeUnit.MILLISECONDS),
+                    "PubSub message contains disk metrics.");
+        }
+    }
+
+    @Test
+    void GIVEN_default_config_WHEN_excludeInterfaces_changed_THEN_sme_recreated() throws Exception {
+        defaultInitialization();
+
+        final CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG, "true",
+                    REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC, "",
+                    Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            getConfigTopic(EXCLUDE_INTERFACES_CONFIG_NAME).withValue("docker0");
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Config log after excludeInterfaces change.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+        }
+    }
+
     private Topic getConfigTopic(String configOption) {
-        return Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY).find(configOption);
+        return Objects.requireNonNull(kernel.findServiceTopic(AWS_GREENGRASS_TELEMETRY_NUCLEUS_EMITTER)).findTopics(CONFIGURATION_CONFIG_KEY).lookup(configOption);
     }
 
 }

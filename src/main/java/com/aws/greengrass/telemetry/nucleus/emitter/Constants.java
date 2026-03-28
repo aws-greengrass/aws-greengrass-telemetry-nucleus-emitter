@@ -13,7 +13,16 @@ public class Constants {
     public static final String PUBSUB_TOPIC_CONFIG_NAME = "pubSubTopic";
     public static final String MQTT_TOPIC_CONFIG_NAME = "mqttTopic";
     public static final String TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME = "telemetryPublishIntervalMs";
+    public static final String METRICS_LEVEL_CONFIG_NAME = "metricsLevel";
+    public static final String OUTPUT_MODE_CONFIG_NAME = "outputMode";
+    public static final String OUTPUT_DIRECTORY_CONFIG_NAME = "outputDirectory";
+    public static final String EXCLUDE_MOUNTS_CONFIG_NAME = "excludeMounts";
+    public static final String EXCLUDE_INTERFACES_CONFIG_NAME = "excludeInterfaces";
+
     public static final String DEFAULT_TELEMETRY_PUBSUB_TOPIC = "$local/greengrass/telemetry";
+    public static final String DEFAULT_METRICS_LEVEL = "basic";
+    public static final String DEFAULT_OUTPUT_MODE = "ipc";
+    public static final String DEFAULT_OUTPUT_DIRECTORY = "/var/log/gg-metrics/system-health/";
 
     //60 seconds by default (~60MB/month of raw data)
     public static final long DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS = 60_000;
@@ -49,4 +58,10 @@ public class Constants {
     public static final String TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG = "Could not parse the "
             + "telemetryPublishIntervalMs config option {}. Please make sure this is set to a valid non-zero long "
             + "value";
+    public static final String METRICS_LEVEL_CONFIG_PARSE_ERROR_LOG =
+            "Could not parse the metricsLevel config option {}. Valid values: basic, extended";
+    public static final String OUTPUT_MODE_CONFIG_PARSE_ERROR_LOG =
+            "Could not parse the outputMode config option {}. Valid values: ipc, emf, both";
+    public static final String OUTPUT_DIRECTORY_CONFIG_PARSE_ERROR_LOG =
+            "Could not parse the outputDirectory config option {}. Must be a non-empty string";
 }

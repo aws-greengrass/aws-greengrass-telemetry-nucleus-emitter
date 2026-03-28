@@ -13,14 +13,27 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.TreeMap;
 
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.CONFIG_INVALID_OPTION_ERROR_LOG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_METRICS_LEVEL;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_OUTPUT_DIRECTORY;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_OUTPUT_MODE;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.DEFAULT_TELEMETRY_PUBSUB_TOPIC;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.EXCLUDE_INTERFACES_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.EXCLUDE_MOUNTS_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.METRICS_LEVEL_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.METRICS_LEVEL_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.MQTT_TOPIC_CONFIG_PARSE_ERROR_LOG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.OUTPUT_DIRECTORY_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.OUTPUT_DIRECTORY_CONFIG_PARSE_ERROR_LOG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.OUTPUT_MODE_CONFIG_NAME;
+import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.OUTPUT_MODE_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBLISH_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_TOPIC_CONFIG_NAME;
@@ -28,7 +41,9 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_P
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterConfiguration.fromPojo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -135,5 +150,152 @@ public class NucleusEmitterConfigurationTest extends GGServiceTestUtil {
         Map<String, Object> pojo = new TreeMap<>();
         NucleusEmitterConfiguration generatedConfiguration = fromPojo(pojo, logger);
         assertNull(generatedConfiguration);
+    }
+
+    @Test
+    void GIVEN_default_config_THEN_has_correct_defaults() {
+        NucleusEmitterConfiguration config = NucleusEmitterConfiguration.builder().build();
+        assertEquals(DEFAULT_METRICS_LEVEL, config.getMetricsLevel());
+        assertEquals(DEFAULT_OUTPUT_MODE, config.getOutputMode());
+        assertEquals(DEFAULT_OUTPUT_DIRECTORY, config.getOutputDirectory());
+        assertEquals(Collections.emptyList(), config.getExcludeMounts());
+        assertEquals(Collections.emptyList(), config.getExcludeInterfaces());
+    }
+
+    @Test
+    void GIVEN_metricsLevel_basic_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(METRICS_LEVEL_CONFIG_NAME, "basic");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals("basic", config.getMetricsLevel());
+    }
+
+    @Test
+    void GIVEN_metricsLevel_extended_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(METRICS_LEVEL_CONFIG_NAME, "extended");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals("extended", config.getMetricsLevel());
+    }
+
+    @Test
+    void GIVEN_invalid_metricsLevel_THEN_fails() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(METRICS_LEVEL_CONFIG_NAME, "invalid");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertNull(config);
+        verify(logger).error(METRICS_LEVEL_CONFIG_PARSE_ERROR_LOG, "invalid");
+    }
+
+    @Test
+    void GIVEN_outputMode_ipc_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(OUTPUT_MODE_CONFIG_NAME, "ipc");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals("ipc", config.getOutputMode());
+    }
+
+    @Test
+    void GIVEN_outputMode_emf_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(OUTPUT_MODE_CONFIG_NAME, "emf");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals("emf", config.getOutputMode());
+    }
+
+    @Test
+    void GIVEN_outputMode_both_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(OUTPUT_MODE_CONFIG_NAME, "both");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals("both", config.getOutputMode());
+    }
+
+    @Test
+    void GIVEN_invalid_outputMode_THEN_fails() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(OUTPUT_MODE_CONFIG_NAME, "invalid");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertNull(config);
+        verify(logger).error(OUTPUT_MODE_CONFIG_PARSE_ERROR_LOG, "invalid");
+    }
+
+    @Test
+    void GIVEN_valid_outputDirectory_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(OUTPUT_DIRECTORY_CONFIG_NAME, "/custom/path/");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals("/custom/path/", config.getOutputDirectory());
+    }
+
+    @Test
+    void GIVEN_blank_outputDirectory_THEN_fails() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(OUTPUT_DIRECTORY_CONFIG_NAME, "");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertNull(config);
+        verify(logger).error(OUTPUT_DIRECTORY_CONFIG_PARSE_ERROR_LOG, "");
+    }
+
+    @Test
+    void GIVEN_excludeMounts_as_list_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(EXCLUDE_MOUNTS_CONFIG_NAME, Arrays.asList("/mnt/a", "/mnt/b"));
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals(Arrays.asList("/mnt/a", "/mnt/b"), config.getExcludeMounts());
+    }
+
+    @Test
+    void GIVEN_excludeMounts_as_string_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(EXCLUDE_MOUNTS_CONFIG_NAME, "/mnt/single");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals(Arrays.asList("/mnt/single"), config.getExcludeMounts());
+    }
+
+    @Test
+    void GIVEN_excludeInterfaces_as_list_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(EXCLUDE_INTERFACES_CONFIG_NAME, Arrays.asList("eth0", "lo"));
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals(Arrays.asList("eth0", "lo"), config.getExcludeInterfaces());
+    }
+
+    @Test
+    void GIVEN_excludeInterfaces_as_string_THEN_parses_correctly() {
+        Map<String, Object> pojo = new TreeMap<>();
+        pojo.put(EXCLUDE_INTERFACES_CONFIG_NAME, "eth0");
+        NucleusEmitterConfiguration config = fromPojo(pojo, logger);
+        assertEquals(Arrays.asList("eth0"), config.getExcludeInterfaces());
+    }
+
+    @Test
+    void GIVEN_basic_metricsLevel_THEN_isDetailedMetrics_returns_false() {
+        NucleusEmitterConfiguration config = NucleusEmitterConfiguration.builder().metricsLevel("basic").build();
+        assertFalse(config.isDetailedMetrics());
+    }
+
+    @Test
+    void GIVEN_extended_metricsLevel_THEN_isDetailedMetrics_returns_true() {
+        NucleusEmitterConfiguration config = NucleusEmitterConfiguration.builder().metricsLevel("extended").build();
+        assertTrue(config.isDetailedMetrics());
+    }
+
+    @Test
+    void GIVEN_ipc_outputMode_THEN_isEmfEnabled_returns_false() {
+        NucleusEmitterConfiguration config = NucleusEmitterConfiguration.builder().outputMode("ipc").build();
+        assertFalse(config.isEmfEnabled());
+    }
+
+    @Test
+    void GIVEN_emf_outputMode_THEN_isEmfEnabled_returns_true() {
+        NucleusEmitterConfiguration config = NucleusEmitterConfiguration.builder().outputMode("emf").build();
+        assertTrue(config.isEmfEnabled());
+    }
+
+    @Test
+    void GIVEN_both_outputMode_THEN_isEmfEnabled_returns_true() {
+        NucleusEmitterConfiguration config = NucleusEmitterConfiguration.builder().outputMode("both").build();
+        assertTrue(config.isEmfEnabled());
     }
 }

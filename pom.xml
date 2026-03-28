@@ -332,6 +332,7 @@
                             <excludes>
                                 <exclude>**/integrationtests/**</exclude>
                             </excludes>
+                            <excludedGroups>integration</excludedGroups>
                         </configuration>
                     </execution>
                     <execution>
@@ -346,6 +347,7 @@
                                 <include>**/integrationtests/**</include>
                             </includes>
                             <groups>${groups}</groups>
+                            <excludedGroups>integration</excludedGroups>
                         </configuration>
                     </execution>
                 </executions>

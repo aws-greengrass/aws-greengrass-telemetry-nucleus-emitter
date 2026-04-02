@@ -44,7 +44,7 @@ class MqttPublisherTest {
     @Test
     void GIVEN_valid_metrics_WHEN_publishing_to_mqtt_THEN_publishes_message() throws IOException, URISyntaxException {
 
-        when(mockMqttClient.publish(any())).thenReturn(CompletableFuture.completedFuture(0));
+        when(mockMqttClient.publish(any(PublishRequest.class))).thenReturn(CompletableFuture.completedFuture(0));
         when(mockMqttClient.connected()).thenReturn(true);
 
         MqttPublisher mqttPublisher = new MqttPublisher(mockMqttClient);
@@ -60,7 +60,7 @@ class MqttPublisherTest {
     @Test
     void GIVEN_valid_metrics_WHEN_publishing_to_custom_mqtt_topic_THEN_publishes_message() throws IOException, URISyntaxException {
 
-        when(mockMqttClient.publish(any())).thenReturn(CompletableFuture.completedFuture(0));
+        when(mockMqttClient.publish(any(PublishRequest.class))).thenReturn(CompletableFuture.completedFuture(0));
         when(mockMqttClient.connected()).thenReturn(true);
 
         MqttPublisher mqttPublisher = new MqttPublisher(mockMqttClient);
@@ -81,7 +81,7 @@ class MqttPublisherTest {
         MqttPublisher mqttPublisher = new MqttPublisher(mockMqttClient);
         CompletableFuture<Integer> future = new CompletableFuture<>();
         future.completeExceptionally(new MqttRequestException("Test exception thrown"));
-        when(mockMqttClient.publish(any())).thenReturn(future);
+        when(mockMqttClient.publish(any(PublishRequest.class))).thenReturn(future);
 
         String sampleJson = readJsonFromFile(SAMPLE_RAW_METRICS_JSON);
         mqttPublisher.publishMessage(sampleJson, TEST_MQTT_TOPIC);

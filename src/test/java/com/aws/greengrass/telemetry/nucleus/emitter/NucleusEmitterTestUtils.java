@@ -52,6 +52,9 @@ public final class NucleusEmitterTestUtils {
             "config_detailed_with_mqtt.yaml";
     public static final String OUTPUT_MODE_BOTH_NUCLEUS_EMITTER_KERNEL_CONFIG =
             "config_output_mode_both.yaml";
+    public static final String EMF_FILE_TEST_KERNEL_CONFIG = "config_emf.yaml";
+    public static final String OUTPUT_MODE_EMF_NUCLEUS_EMITTER_KERNEL_CONFIG =
+            "config_output_mode_emf.yaml";
 
 
     public static String readJsonFromFile(String filename) throws IOException, URISyntaxException {

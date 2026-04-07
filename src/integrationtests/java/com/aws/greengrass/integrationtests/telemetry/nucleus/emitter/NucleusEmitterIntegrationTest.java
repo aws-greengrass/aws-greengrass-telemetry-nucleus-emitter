@@ -53,8 +53,13 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.PUBSUB_PUBL
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.STARTUP_CONFIGURATION_LOG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_NAME;
 import static com.aws.greengrass.telemetry.nucleus.emitter.Constants.TELEMETRY_PUBLISH_INTERVAL_CONFIG_PARSE_ERROR_LOG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.ALL_NEW_FIELDS_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.BASIC_NEW_FIELDS_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_METRICS_LEVEL_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_MQTT_TOPIC_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_OUTPUT_DIRECTORY_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_OUTPUT_MODE_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_PUBSUB_PUBLISH_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_TELEMETRY_PUBLISH_INTERVALMS_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_THRESHOLD_NUCLEUS_EMITTER_KERNEL_CONFIG;
@@ -438,6 +443,101 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
                 cdl.countDown();
             }
         };
+    }
+    @Test
+    void GIVEN_all_new_config_fields_WHEN_component_started_THEN_it_works() throws Exception {
+        final CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG, "true", REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC, "", Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(ALL_NEW_FIELDS_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Running with all new fields config.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+        }
+    }
+
+    @Test
+    void GIVEN_basic_new_config_fields_WHEN_component_started_THEN_it_works() throws Exception {
+        final CountDownLatch configLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(format(STARTUP_CONFIGURATION_LOG, "true", REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC, "", Long.toString(DEFAULT_TELEMETRY_PUBLISH_INTERVAL_MS)))) {
+                configLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(BASIC_NEW_FIELDS_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(configLog.await(30, TimeUnit.SECONDS), "Running with basic new fields config.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+        }
+    }
+    @Test
+    void GIVEN_invalid_metricsLevel_option_THEN_it_uses_default() throws Exception {
+        final CountDownLatch errorLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains("Could not parse the metricsLevel")) {
+                errorLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_METRICS_LEVEL_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(errorLog.await(30, TimeUnit.SECONDS), "metricsLevel parse error log detected.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+        }
+    }
+
+    @Test
+    void GIVEN_invalid_outputMode_option_THEN_it_uses_default() throws Exception {
+        final CountDownLatch errorLog = new CountDownLatch(1);
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains("Could not parse the outputMode")) {
+                errorLog.countDown();
+            }
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_OUTPUT_MODE_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(errorLog.await(30, TimeUnit.SECONDS), "outputMode parse error log detected.");
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+        }
+    }
+
+    @Test
+    void GIVEN_blank_outputDirectory_option_THEN_it_uses_default() throws Exception {
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(INVALID_OUTPUT_DIRECTORY_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+        }
     }
 
     private Topic getConfigTopic(String configOption) {

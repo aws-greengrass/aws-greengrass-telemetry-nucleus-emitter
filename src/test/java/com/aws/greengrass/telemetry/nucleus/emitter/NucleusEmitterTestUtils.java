@@ -41,6 +41,12 @@ public final class NucleusEmitterTestUtils {
             "config_invalid_telemetryPublishIntervalMs.yaml";
     public static final String NO_CONFIG_OPTIONS_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_no_options.yaml";
     public static final String MQTT_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_mqtt.yaml";
+    public static final String ALL_NEW_FIELDS_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_all_new_fields.yaml";
+    public static final String BASIC_NEW_FIELDS_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_basic_new_fields.yaml";
+    public static final String INVALID_METRICS_LEVEL_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_invalid_metricsLevel.yaml";
+    public static final String INVALID_OUTPUT_MODE_NUCLEUS_EMITTER_KERNEL_CONFIG = "config_invalid_outputMode.yaml";
+    public static final String INVALID_OUTPUT_DIRECTORY_NUCLEUS_EMITTER_KERNEL_CONFIG =
+            "config_invalid_outputDirectory.yaml";
 
 
     public static String readJsonFromFile(String filename) throws IOException, URISyntaxException {
@@ -48,7 +54,8 @@ public final class NucleusEmitterTestUtils {
         return new String(Files.readAllBytes(file.toPath()));
     }
 
-    public static void startKernelWithConfig(String configFile, Kernel kernel, Path rootDir) throws InterruptedException {
+    public static void startKernelWithConfig(String configFile, Kernel kernel, Path rootDir)
+            throws InterruptedException {
         CountDownLatch nucleusTelemetryEmitterRunning = new CountDownLatch(1);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i", configFile);
         kernel.getContext().addGlobalStateChangeListener((GreengrassService service, State was, State newState) -> {

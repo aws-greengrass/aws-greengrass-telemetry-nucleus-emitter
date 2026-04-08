@@ -23,6 +23,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -57,7 +58,7 @@ public class NucleusEmitter extends PluginService {
 
     private static final ObjectMapper jsonMapper = SerializerFactory.getFailSafeJsonObjectMapper();
 
-    private final SystemMetricsEmitter sme;
+    private volatile SystemMetricsEmitter sme;
     private final KernelMetricsEmitter kme;
 
     //Metric publishers
@@ -71,7 +72,6 @@ public class NucleusEmitter extends PluginService {
      *  Constructs a new NucleusEmitter to start publishing telemetry from the Nucleus.
      *
      * @param t                 {@link Topics}
-     * @param sme               {@link SystemMetricsEmitter}
      * @param kme               {@link KernelMetricsEmitter}
      * @param pubSubPublisher   {@link PubSubPublisher}
      * @param mqttPublisher     {@link MqttPublisher}
@@ -79,11 +79,10 @@ public class NucleusEmitter extends PluginService {
      *
      */
     @Inject
-    public NucleusEmitter(Topics t, SystemMetricsEmitter sme, KernelMetricsEmitter kme,
+    public NucleusEmitter(Topics t, KernelMetricsEmitter kme,
                           PubSubPublisher pubSubPublisher, MqttPublisher mqttPublisher,
                           ScheduledExecutorService ses) {
         super(t);
-        this.sme = sme;
         this.kme = kme;
         this.pubSubPublisher = pubSubPublisher;
         this.mqttPublisher = mqttPublisher;
@@ -103,8 +102,15 @@ public class NucleusEmitter extends PluginService {
         boolean mqttTopicChanged = !configuration.getMqttTopic().equals(newConfiguration.getMqttTopic());
         boolean telemetryPublishIntervalMsChanged = configuration.getTelemetryPublishIntervalMs()
                 != newConfiguration.getTelemetryPublishIntervalMs();
+        boolean metricsLevelChanged = !configuration.getMetricsLevel()
+                .equals(newConfiguration.getMetricsLevel());
+        boolean excludeMountsChanged = !configuration.getExcludeMounts()
+                .equals(newConfiguration.getExcludeMounts());
+        boolean excludeInterfacesChanged = !configuration.getExcludeInterfaces()
+                .equals(newConfiguration.getExcludeInterfaces());
 
-        if (!pubSubPublishChanged && !mqttTopicChanged && !telemetryPublishIntervalMsChanged) {
+        if (!pubSubPublishChanged && !mqttTopicChanged && !telemetryPublishIntervalMsChanged
+                && !metricsLevelChanged && !excludeMountsChanged && !excludeInterfacesChanged) {
             return;
         }
 
@@ -114,12 +120,24 @@ public class NucleusEmitter extends PluginService {
                     MIN_TELEMETRY_PUBLISH_INTERVAL_MS);
             newConfiguration = NucleusEmitterConfiguration.builder()
                     .pubsubPublish(newConfiguration.isPubsubPublish())
+                    .pubsubTopic(newConfiguration.getPubsubTopic())
                     .mqttTopic(newConfiguration.getMqttTopic())
                     .telemetryPublishIntervalMs(MIN_TELEMETRY_PUBLISH_INTERVAL_MS)
+                    .metricsLevel(newConfiguration.getMetricsLevel())
+                    .outputMode(newConfiguration.getOutputMode())
+                    .outputDirectory(newConfiguration.getOutputDirectory())
+                    .excludeMounts(newConfiguration.getExcludeMounts())
+                    .excludeInterfaces(newConfiguration.getExcludeInterfaces())
                     .build();
         }
         
         currentConfiguration.set(newConfiguration);
+        if (metricsLevelChanged || excludeMountsChanged || excludeInterfacesChanged) {
+            this.sme = new SystemMetricsEmitter(
+                    newConfiguration.isDetailedMetrics(),
+                    newConfiguration.getExcludeMounts(),
+                    newConfiguration.getExcludeInterfaces());
+        }
         scheduleTelemetryPublish();
     }
 
@@ -127,6 +145,8 @@ public class NucleusEmitter extends PluginService {
     @Override
     public void startup() {
         reportState(State.RUNNING);
+        this.sme = new SystemMetricsEmitter(false,
+                Collections.emptyList(), Collections.emptyList());
         config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(subscribeToConfigChanges);
         scheduleTelemetryPublish();
     }
@@ -175,7 +195,8 @@ public class NucleusEmitter extends PluginService {
 
         String jsonString = null;
         try {
-            List<Metric> metrics = Stream.of(sme.getMetrics(), kme.getMetrics())
+            SystemMetricsEmitter localSme = this.sme;
+            List<Metric> metrics = Stream.of(localSme.getMetrics(), kme.getMetrics())
                     .flatMap(Collection::stream)
                     .collect(Collectors.toList());
             jsonString = jsonMapper.writeValueAsString(metrics);

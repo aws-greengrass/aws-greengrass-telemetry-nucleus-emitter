@@ -159,6 +159,9 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
                 continue;
             }
             long timeDelta = current.timestamp - prev.timestamp;
+            if (timeDelta <= 0) {
+                continue;
+            }
             double seconds = timeDelta / 1000.0;
 
             addNetworkMetric(metrics, "BytesRecvPerSec", name, TelemetryUnit.Bytes,

@@ -81,6 +81,22 @@ class SystemMetricsEmitterDetailedTest {
     }
 
     @Test
+    void GIVEN_detailed_emitter_WHEN_rapid_calls_THEN_no_infinity_or_nan_values() {
+        SystemMetricsEmitter emitter = new SystemMetricsEmitter(
+                true, Collections.emptyList(), Collections.emptyList());
+        emitter.getMetrics();
+        // Rapid second call — timeDelta may be 0 if OSHI caches timestamps
+        List<Metric> metrics = emitter.getMetrics();
+        for (Metric m : metrics) {
+            if (m.getValue() instanceof Double) {
+                double val = (Double) m.getValue();
+                assertFalse(Double.isInfinite(val), m.getName() + " should not be Infinity");
+                assertFalse(Double.isNaN(val), m.getName() + " should not be NaN");
+            }
+        }
+    }
+
+    @Test
     void GIVEN_excluded_mount_WHEN_getMetrics_THEN_mount_not_in_results() {
         SystemMetricsEmitter baseline = new SystemMetricsEmitter(
                 true, Collections.emptyList(), Collections.emptyList());

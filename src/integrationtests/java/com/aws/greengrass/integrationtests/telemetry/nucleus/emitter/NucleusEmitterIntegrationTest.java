@@ -8,6 +8,8 @@ package com.aws.greengrass.integrationtests.telemetry.nucleus.emitter;
 import com.aws.greengrass.builtin.services.pubsub.PubSubIPCEventStreamAgent;
 import com.aws.greengrass.builtin.services.pubsub.PublishEvent;
 import com.aws.greengrass.config.Topic;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.integrationtests.BaseITCase;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
@@ -30,7 +32,10 @@ import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
@@ -69,6 +74,8 @@ import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUti
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.INVALID_THRESHOLD_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.NO_CONFIG_OPTIONS_NUCLEUS_EMITTER_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.OUTPUT_MODE_BOTH_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.OUTPUT_MODE_EMF_NUCLEUS_EMITTER_KERNEL_CONFIG;
+import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.EMF_FILE_TEST_KERNEL_CONFIG;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.REGEX_DEFAULT_TELEMETRY_PUBSUB_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.TEST_MQTT_TOPIC;
 import static com.aws.greengrass.telemetry.nucleus.emitter.NucleusEmitterTestUtils.format;
@@ -100,6 +107,12 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
     @AfterEach
     void teardown() {
         kernel.shutdown();
+        Path emfDir = Paths.get("/tmp/greengrass/telemetry");
+        if (Files.isDirectory(emfDir)) {
+            try (java.util.stream.Stream<Path> files = Files.list(emfDir)) {
+                files.forEach(f -> f.toFile().delete());
+            } catch (IOException ignored) { }
+        }
     }
 
     private void defaultInitialization() throws Exception {
@@ -623,6 +636,138 @@ class NucleusEmitterIntegrationTest extends BaseITCase {
             assertTrue(configLog.await(30, TimeUnit.SECONDS), "Config log detected.");
             assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
         }
+    }
+
+    @Test
+    void GIVEN_output_mode_both_WHEN_publish_fires_THEN_emf_file_created() throws Exception {
+        // Clear GG LogManager's cached "emf-metrics" logger to avoid JVM-global cache pollution
+        // from other tests that create EmfFileWriter with a different outputDirectory.
+        clearCachedEmfLogger();
+
+        startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(
+                EMF_FILE_TEST_KERNEL_CONFIG)).toString(), kernel, rootDir);
+
+        // Poll for EMF file creation (5s publish interval, 30s timeout)
+        Path emfDir = Paths.get("/tmp/greengrass/telemetry");
+        long deadline = System.currentTimeMillis() + 30000;
+        long emfCount = 0;
+        while (System.currentTimeMillis() < deadline) {
+            if (Files.isDirectory(emfDir)) {
+                try (java.util.stream.Stream<Path> files = Files.list(emfDir)) {
+                    emfCount = files.count();
+                }
+                if (emfCount > 0) {
+                    break;
+                }
+            }
+            Thread.sleep(1000);
+        }
+        assertTrue(emfCount > 0, "EMF file created in output directory.");
+    }
+
+    @Test
+    void GIVEN_output_mode_emf_WHEN_publish_fires_THEN_emf_file_written_and_pubsub_publishes() throws Exception {
+        clearCachedEmfLogger();
+
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(
+                    OUTPUT_MODE_EMF_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+
+            // Verify EMF file is created
+            Path emfDir = Paths.get("/tmp/greengrass/telemetry");
+            long deadline = System.currentTimeMillis() + 30000;
+            long emfCount = 0;
+            while (System.currentTimeMillis() < deadline) {
+                if (Files.isDirectory(emfDir)) {
+                    try (java.util.stream.Stream<Path> files = Files.list(emfDir)) {
+                        emfCount = files.count();
+                    }
+                    if (emfCount > 0) {
+                        break;
+                    }
+                }
+                Thread.sleep(1000);
+            }
+            assertTrue(emfCount > 0, "EMF file created in output directory with outputMode emf.");
+        }
+    }
+
+    @Test
+    void GIVEN_output_mode_both_WHEN_changed_to_ipc_THEN_config_applied() throws Exception {
+        clearCachedEmfLogger();
+
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(
+                    EMF_FILE_TEST_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Component started with EMF.");
+
+            // Switch to ipc mode
+            Topics configTopic = Objects.requireNonNull(
+                    kernel.findServiceTopic("aws.greengrass.telemetry.NucleusEmitter"))
+                    .findTopics("configuration");
+            configTopic.lookup("outputMode").withValue("ipc");
+
+            // Give handleConfiguration time to process
+            Thread.sleep(2000);
+
+            // Verify component is still RUNNING (didn't crash from config change)
+            assertEquals(State.RUNNING,
+                    kernel.locate("aws.greengrass.telemetry.NucleusEmitter").getState(),
+                    "Component still running after outputMode change to ipc.");
+        }
+    }
+
+    @Test
+    void GIVEN_default_ipc_config_WHEN_publish_fires_THEN_no_emf_files() throws Exception {
+        final CountDownLatch pubsubLog = new CountDownLatch(1);
+        try (AutoCloseable listener = TestUtils.createCloseableLogListener((m) -> {
+            String stdoutStr = m.getMessage();
+            if (stdoutStr == null || stdoutStr.length() == 0) {return;}
+            if (stdoutStr.contains(PUBSUB_PUBLISH_STARTING)) {
+                pubsubLog.countDown();
+            }
+        })) {
+            startKernelWithConfig(Objects.requireNonNull(NucleusEmitterTestUtils.class.getResource(
+                    DEFAULT_NUCLEUS_EMITTER_KERNEL_CONFIG)).toString(), kernel, rootDir);
+            assertTrue(pubsubLog.await(30, TimeUnit.SECONDS), "Pub/sub publish log detected.");
+
+            // Wait a couple publish cycles then verify no EMF files
+            Thread.sleep(5000);
+            Path emfDir = Paths.get("/tmp/greengrass/telemetry");
+            long emfCount = 0;
+            if (Files.isDirectory(emfDir)) {
+                try (java.util.stream.Stream<Path> files = Files.list(emfDir)) {
+                    emfCount = files.count();
+                }
+            }
+            assertEquals(0, emfCount, "No EMF files with default ipc outputMode.");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void clearCachedEmfLogger() throws Exception {
+        Field loggerMapField = LogManager.class.getDeclaredField("loggerMap");
+        loggerMapField.setAccessible(true);
+        ((java.util.concurrent.ConcurrentMap<String, ?>) loggerMapField.get(null)).remove("emf-metrics");
+
+        Field logConfigsField = LogManager.class.getDeclaredField("logConfigurations");
+        logConfigsField.setAccessible(true);
+        ((java.util.Map<String, ?>) logConfigsField.get(null)).remove("emf-metrics");
     }
 
     @Test

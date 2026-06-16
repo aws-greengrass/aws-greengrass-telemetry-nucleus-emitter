@@ -12,6 +12,8 @@
 
 package com.aws.greengrass.telemetry.nucleus.emitter.metrics;
 
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
+    private static final Logger logger = LogManager.getLogger(SystemMetricsEmitter.class);
     private static final int MB_CONVERTER = 1024 * 1024;
     private static final int PERCENTAGE_CONVERTER = 100;
     public static final String NAMESPACE = "SystemMetrics";
@@ -144,7 +147,8 @@ public class SystemMetricsEmitter extends PeriodicMetricsEmitter {
                     continue;
                 }
             } catch (SocketException e) {
-                // Interface unavailable (e.g. being removed); skip this cycle, next call retries
+                logger.atDebug().kv("interface", name)
+                        .cause(e).log("Skipping unavailable network interface");
                 continue;
             }
             if (excludeInterfaces.contains(name)) {

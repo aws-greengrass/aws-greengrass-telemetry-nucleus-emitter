@@ -6,8 +6,11 @@
 package com.aws.greengrass.telemetry.nucleus.emitter;
 
 import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
+import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.telemetry.impl.Metric;
+import com.aws.greengrass.telemetry.nucleus.emitter.emf.EmfFileWriter;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.KernelMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.SystemMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.publisher.MqttPublisher;
@@ -82,6 +85,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class NucleusEmitterTest extends GGServiceTestUtil {
@@ -571,6 +575,140 @@ class NucleusEmitterTest extends GGServiceTestUtil {
         emitter.shutdown();
     }
 
+    @Test
+    void GIVEN_emf_writer_set_WHEN_publishTelemetry_THEN_writes_emf()
+            throws Exception {
+        initializeMockedConfig();
+        emitter = new NucleusEmitter(
+                this.config, mockKme, mockPubSubPublisher,
+                mockMqttPublisher, mockScheduledExecutorService);
+        setSmeField(emitter, mockSme);
+        when(mockSme.getMetrics())
+                .thenReturn(Collections.emptyList());
+        when(mockKme.getMetrics())
+                .thenReturn(Collections.emptyList());
+
+        EmfFileWriter mockEmf = mock(EmfFileWriter.class, // NOPMD - mock
+                withSettings().useConstructor("test", java.nio.file.Paths.get("/tmp")));
+        setEmfWriterField(emitter, mockEmf);
+
+        invokePublishTelemetry(emitter, false,
+                DEFAULT_TELEMETRY_PUBSUB_TOPIC, false, "");
+
+        verify(mockEmf).write(any());
+    }
+
+    @Test
+    void GIVEN_no_emf_writer_WHEN_publishTelemetry_THEN_skips_emf()
+            throws Exception {
+        initializeMockedConfig();
+        emitter = new NucleusEmitter(
+                this.config, mockKme, mockPubSubPublisher,
+                mockMqttPublisher, mockScheduledExecutorService);
+        setSmeField(emitter, mockSme);
+        when(mockSme.getMetrics())
+                .thenReturn(Collections.emptyList());
+        when(mockKme.getMetrics())
+                .thenReturn(Collections.emptyList());
+
+        invokePublishTelemetry(emitter, true,
+                DEFAULT_TELEMETRY_PUBSUB_TOPIC, false, "");
+
+        verify(mockPubSubPublisher).publishMessage(
+                any(), eq(DEFAULT_TELEMETRY_PUBSUB_TOPIC));
+    }
+
+    // EmfFileWriter no longer implements Closeable — GG logging framework manages files.
+
+    @Test
+    void GIVEN_outputMode_changed_WHEN_handleConfiguration_THEN_recreates_emf()
+            throws Exception {
+        initializeMockedConfig();
+        emitter = new NucleusEmitter(
+                this.config, mockKme, mockPubSubPublisher,
+                mockMqttPublisher, mockScheduledExecutorService);
+        setSmeField(emitter, mockSme);
+        setContextField(emitter);
+
+        Map<String, Object> pojo = new HashMap<>();
+        pojo.put("outputMode", "both");
+        pojo.put("outputDirectory", "/tmp/test-emf");
+
+        Topics configTopics = mock(Topics.class);
+        when(configTopics.toPOJO()).thenReturn(pojo);
+        stubSchedule();
+        invokeHandleConfiguration(emitter, configTopics);
+
+        assertNotNull(getEmfWriterField(emitter));
+        assertEquals("both",
+                emitter.getCurrentConfiguration().get()
+                        .getOutputMode());
+    }
+
+    @Test
+    void GIVEN_outputMode_ipc_WHEN_handleConfiguration_THEN_no_emf()
+            throws Exception {
+        initializeMockedConfig();
+        emitter = new NucleusEmitter(
+                this.config, mockKme, mockPubSubPublisher,
+                mockMqttPublisher, mockScheduledExecutorService);
+        setSmeField(emitter, mockSme);
+        setContextField(emitter);
+
+        // First set outputMode to "both" so EMF writer is created
+        Map<String, Object> bothPojo = new HashMap<>();
+        bothPojo.put("outputMode", "both");
+        bothPojo.put("outputDirectory", "/tmp/test-emf");
+        Topics bothTopics = mock(Topics.class);
+        when(bothTopics.toPOJO()).thenReturn(bothPojo);
+        stubSchedule();
+        invokeHandleConfiguration(emitter, bothTopics);
+        assertNotNull(getEmfWriterField(emitter));
+
+        // Now transition to "ipc" — EMF writer should be closed
+        Map<String, Object> ipcPojo = new HashMap<>();
+        ipcPojo.put("outputMode", "ipc");
+        ipcPojo.put("outputDirectory", "/tmp/test-emf");
+        Topics ipcTopics = mock(Topics.class);
+        when(ipcTopics.toPOJO()).thenReturn(ipcPojo);
+        invokeHandleConfiguration(emitter, ipcTopics);
+
+        assertNull(getEmfWriterField(emitter));
+    }
+
+    @Test
+    void GIVEN_outputDirectory_changed_WHEN_handleConfiguration_THEN_recreates_emf()
+            throws Exception {
+        initializeMockedConfig();
+        emitter = new NucleusEmitter(
+                this.config, mockKme, mockPubSubPublisher,
+                mockMqttPublisher, mockScheduledExecutorService);
+        setSmeField(emitter, mockSme);
+        setContextField(emitter);
+
+        // First set outputMode to "both"
+        Map<String, Object> pojo1 = new HashMap<>();
+        pojo1.put("outputMode", "both");
+        pojo1.put("outputDirectory", "/tmp/emf-a");
+        Topics topics1 = mock(Topics.class);
+        when(topics1.toPOJO()).thenReturn(pojo1);
+        stubSchedule();
+        invokeHandleConfiguration(emitter, topics1);
+        EmfFileWriter first = getEmfWriterField(emitter); // NOPMD - managed by NucleusEmitter
+        assertNotNull(first);
+
+        // Change only outputDirectory
+        Map<String, Object> pojo2 = new HashMap<>();
+        pojo2.put("outputMode", "both");
+        pojo2.put("outputDirectory", "/tmp/emf-b");
+        Topics topics2 = mock(Topics.class);
+        when(topics2.toPOJO()).thenReturn(pojo2);
+        invokeHandleConfiguration(emitter, topics2);
+        EmfFileWriter second = getEmfWriterField(emitter); // NOPMD - managed by NucleusEmitter
+        assertNotNull(second);
+        assertNotSame(first, second);
+    }
+
     // --- helpers ---
 
     private static void setSmeField(
@@ -594,6 +732,65 @@ class NucleusEmitterTest extends GGServiceTestUtil {
                 .getDeclaredField("telemetryPublishFuture");
         f.setAccessible(true);
         f.set(target, future);
+    }
+
+    private static void setEmfWriterField(
+            NucleusEmitter target, EmfFileWriter writer)
+            throws Exception {
+        Field f = NucleusEmitter.class
+                .getDeclaredField("emfFileWriter");
+        f.setAccessible(true);
+        f.set(target, writer);
+    }
+
+    private static EmfFileWriter getEmfWriterField(
+            NucleusEmitter target) throws Exception {
+        Field f = NucleusEmitter.class
+                .getDeclaredField("emfFileWriter");
+        f.setAccessible(true);
+        return (EmfFileWriter) f.get(target);
+    }
+
+    private static void setContextField(NucleusEmitter target)
+            throws Exception {
+        Context mockContext = mock(Context.class); // NOPMD - mock
+        DeviceConfiguration mockDeviceConfig =
+                mock(DeviceConfiguration.class);
+        com.aws.greengrass.config.Topic mockTopic =
+                mock(com.aws.greengrass.config.Topic.class);
+        when(mockTopic.getOnce()).thenReturn("test-thing");
+        when(mockDeviceConfig.getThingName())
+                .thenReturn(mockTopic);
+        when(mockContext.get(DeviceConfiguration.class))
+                .thenReturn(mockDeviceConfig);
+        Field f = target.getClass().getField("context");
+        f.setAccessible(true);
+        f.set(target, mockContext);
+    }
+
+    @Test
+    void GIVEN_emf_only_WHEN_publishTelemetry_THEN_no_json_serialization()
+            throws Exception {
+        initializeMockedConfig();
+        emitter = new NucleusEmitter(
+                this.config, mockKme, mockPubSubPublisher,
+                mockMqttPublisher, mockScheduledExecutorService);
+        setSmeField(emitter, mockSme);
+        when(mockSme.getMetrics())
+                .thenReturn(Collections.emptyList());
+        when(mockKme.getMetrics())
+                .thenReturn(Collections.emptyList());
+
+        EmfFileWriter mockEmf = mock(EmfFileWriter.class, // NOPMD - mock
+                withSettings().useConstructor("test", java.nio.file.Paths.get("/tmp")));
+        setEmfWriterField(emitter, mockEmf);
+
+        invokePublishTelemetry(emitter, false,
+                DEFAULT_TELEMETRY_PUBSUB_TOPIC, false, "");
+
+        verify(mockPubSubPublisher, never()).publishMessage(any(), any());
+        verify(mockMqttPublisher, never()).publishMessage(any(), any());
+        verify(mockEmf).write(any());
     }
 
     private void stubSchedule() {

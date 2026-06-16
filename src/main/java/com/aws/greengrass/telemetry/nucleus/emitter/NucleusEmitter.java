@@ -9,12 +9,15 @@ import com.aws.greengrass.config.ChildChanged;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.ImplementsService;
 import com.aws.greengrass.dependency.State;
+import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.telemetry.impl.Metric;
+import com.aws.greengrass.telemetry.nucleus.emitter.emf.EmfFileWriter;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.KernelMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.metrics.SystemMetricsEmitter;
 import com.aws.greengrass.telemetry.nucleus.emitter.publisher.MqttPublisher;
 import com.aws.greengrass.telemetry.nucleus.emitter.publisher.PubSubPublisher;
+import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.SerializerFactory;
 import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -22,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
 import lombok.Getter;
 
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -64,6 +68,8 @@ public class NucleusEmitter extends PluginService {
     //Metric publishers
     private final PubSubPublisher pubSubPublisher;
     private final MqttPublisher mqttPublisher;
+    // volatile ensures visibility across config subscriber and publish threads
+    private volatile EmfFileWriter emfFileWriter;
 
     private final ChildChanged subscribeToConfigChanges = (what, topic) ->
             handleConfiguration(this.config.lookupTopics(CONFIGURATION_CONFIG_KEY));
@@ -108,9 +114,14 @@ public class NucleusEmitter extends PluginService {
                 .equals(newConfiguration.getExcludeMounts());
         boolean excludeInterfacesChanged = !configuration.getExcludeInterfaces()
                 .equals(newConfiguration.getExcludeInterfaces());
+        boolean outputModeChanged = !configuration.getOutputMode()
+                .equals(newConfiguration.getOutputMode());
+        boolean outputDirectoryChanged = !configuration.getOutputDirectory()
+                .equals(newConfiguration.getOutputDirectory());
 
         if (!pubSubPublishChanged && !mqttTopicChanged && !telemetryPublishIntervalMsChanged
-                && !metricsLevelChanged && !excludeMountsChanged && !excludeInterfacesChanged) {
+                && !metricsLevelChanged && !excludeMountsChanged && !excludeInterfacesChanged
+                && !outputModeChanged && !outputDirectoryChanged) {
             return;
         }
 
@@ -138,6 +149,14 @@ public class NucleusEmitter extends PluginService {
                     newConfiguration.getExcludeMounts(),
                     newConfiguration.getExcludeInterfaces());
         }
+        if (outputModeChanged || outputDirectoryChanged) {
+            if (newConfiguration.isEmfEnabled()) {
+                this.emfFileWriter = new EmfFileWriter(getThingName(),
+                        Paths.get(newConfiguration.getOutputDirectory()));
+            } else {
+                this.emfFileWriter = null; // NOPMD NullAssignment - disables EMF output
+            }
+        }
         scheduleTelemetryPublish();
     }
 
@@ -151,14 +170,34 @@ public class NucleusEmitter extends PluginService {
         scheduleTelemetryPublish();
     }
 
-    private void publishTelemetry(boolean pubSubPublish, String pubSubTopic, boolean mqttPublish, String mqttTopic) {
-        String jsonString = retrieveMetricsJson(jsonMapper);
-        if (pubSubPublish) {
-            this.pubSubPublisher.publishMessage(jsonString, pubSubTopic);
+    private void publishTelemetry(boolean pubSubPublish, String pubSubTopic,
+                                  boolean mqttPublish, String mqttTopic) {
+        List<Metric> metrics = collectMetrics();
+        if (pubSubPublish || mqttPublish) {
+            String jsonString = null; // NOPMD - set in try, checked before use
+            try {
+                jsonString = jsonMapper.writeValueAsString(metrics);
+            } catch (JsonProcessingException e) {
+                logger.error(JSON_PARSE_ERROR_LOG, e);
+            }
+            if (pubSubPublish && jsonString != null) {
+                this.pubSubPublisher.publishMessage(jsonString, pubSubTopic);
+            }
+            if (mqttPublish && jsonString != null) {
+                this.mqttPublisher.publishMessage(jsonString, mqttTopic);
+            }
         }
-        if (mqttPublish) {
-            this.mqttPublisher.publishMessage(jsonString, mqttTopic);
+        EmfFileWriter localEmf = this.emfFileWriter;
+        if (localEmf != null) {
+            localEmf.write(metrics);
         }
+    }
+
+    private List<Metric> collectMetrics() {
+        SystemMetricsEmitter localSme = this.sme;
+        return Stream.of(localSme.getMetrics(), kme.getMetrics())
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList());
     }
 
     private void scheduleTelemetryPublish() {
@@ -192,13 +231,9 @@ public class NucleusEmitter extends PluginService {
     }
 
     protected String retrieveMetricsJson(ObjectMapper jsonMapper) {
-
         String jsonString = null;
         try {
-            SystemMetricsEmitter localSme = this.sme;
-            List<Metric> metrics = Stream.of(localSme.getMetrics(), kme.getMetrics())
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.toList());
+            List<Metric> metrics = collectMetrics();
             jsonString = jsonMapper.writeValueAsString(metrics);
         } catch (JsonProcessingException e) {
             logger.error(JSON_PARSE_ERROR_LOG, e);
@@ -209,6 +244,13 @@ public class NucleusEmitter extends PluginService {
     @Override
     public void shutdown() {
         cancelJob(telemetryPublishFuture, telemetryPublishInProgressLock, true);
+        this.emfFileWriter = null; // NOPMD NullAssignment - release on shutdown
+    }
+
+    private String getThingName() {
+        return Coerce.toString(
+                this.context.get(DeviceConfiguration.class)
+                        .getThingName());
     }
 
     private void cancelJob(ScheduledFuture<?> future, Object lock, boolean immediately) {

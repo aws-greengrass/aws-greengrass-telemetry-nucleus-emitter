@@ -1,0 +1,20 @@
+---
+services:
+  aws.greengrass.Nucleus:
+    configuration:
+      runWithDefault:
+        posixUser: nobody
+  aws.greengrass.telemetry.NucleusEmitter:
+    configuration:
+      pubSubPublish: "true"
+      mqttTopic: ""
+      telemetryPublishIntervalMs: "5000"
+      outputMode: "both"
+      outputDirectory: "/tmp/greengrass/telemetry"
+    dependencies:
+      - "aws.greengrass.Nucleus:SOFT"
+    version: "1.0.0"
+  main:
+    dependencies:
+      - "aws.greengrass.telemetry.NucleusEmitter"
+    lifecycle: {}
